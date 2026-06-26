@@ -1,3 +1,5 @@
+.vscode/
+
 # macOS
 .DS_Store
 
@@ -57,3 +59,7 @@ AGENTS.md
 # Upstream/original model code kept outside git for the first smoke-test stage
 sam_lora_aigc_detect/
 segment-anything-main_lora/
+
+# temperary
+Dockerfile
+.dockerignore

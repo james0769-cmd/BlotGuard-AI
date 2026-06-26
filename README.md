@@ -1,59 +1,16 @@
-# 蛋白印迹AI检测系统
+# Blotguard-AI
 
-## 快速开始
+v0-beta: 环境与测试
 
-### 1. 准备
-确保项目根目录下已有：
-```text
-sam_lora_aigc_detect/
-segment-anything-main_lora/
-data/
-```
-### 2. 环境(CPU)
+启动：
 ```bash
-docker build -t wb-ai:cpu .
-```
-macOS / Linux：
-
-```bash
-DATA_DIR=/path/to/data
-docker run --rm -it \
-  -v "$PWD":/workspace \
-  -v "$DATA_DIR":/data:ro \
-  wb-ai:cpu
-```
-Windows PowerShell：
-```powershell
-$env:DATA_DIR="D:\path\to\data"
-docker run --rm -it `
-  -v ${PWD}:/workspace `
-  -v ${env:DATA_DIR}:/data:ro `
-  wb-ai:cpu
+conda create -n blotguard-ai python==3.10
+conda activate blotguard-ai
+pip install -r requirements.txt
 ```
 
-### 3. 检查环境
+测试：
 
-进入容器后执行：
+运行`scripts`下的两个测试脚本
 
-```bash
-python -c "import torch, torchvision, cv2, sklearn, numpy; print(torch.__version__, torchvision.__version__, numpy.__version__, cv2.__version__, torch.cuda.is_available())"
-```
-
-### 4. 检查模型
-
-分类检测：
-
-```bash
-python scripts/smoke_detect.py \
-  --device cpu \
-  --image /data/western_blots/western_blots_dataset/real/real_img_04818.png
-```
-
-篡改定位：
-
-```bash
-python scripts/smoke_segment.py \
-  --device cpu \
-  --image /data/western_blots/western_blots_dataset/synth/stylegan2ada/stylegan2ada_img_00001.png \
-  --output outputs/smoke_segment_mask.png
-```
+建议：后续可以在docker中配置这个环境
