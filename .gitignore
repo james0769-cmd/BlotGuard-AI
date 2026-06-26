@@ -1,0 +1,55 @@
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Local config and secrets
+.env
+.env.*
+!.env.example
+configs/*.local.yaml
+
+# Data, outputs, and generated artifacts
+data
+data/
+outputs/
+runs/
+logs/
+result/
+results/
+
+# Model checkpoints and heavy ML artifacts
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.npz
+*.pkl
+*.pickle
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+
+# 文档
+docs/
+AGENTS.md
+
+# Upstream/original model code kept outside git for the first smoke-test stage
+sam_lora_aigc_detect/
+segment-anything-main_lora/
