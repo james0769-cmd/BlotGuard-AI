@@ -1,0 +1,40 @@
+# Git and local editor files
+.git/
+.DS_Store
+.idea/
+.vscode/
+
+# Python cache and virtual environments
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+env/
+
+# Local config and generated outputs
+.env
+.env.*
+configs/*.local.yaml
+outputs/
+runs/
+logs/
+result/
+results/
+
+# Data and model artifacts are mounted at runtime
+data/
+checkpoints/
+*.pth
+*.pt
+*.ckpt
+*.onnx
+*.npz
+*.pkl
+*.pickle
+
+# Large upstream/model worktrees are mounted or tracked separately
+sam_lora_aigc_detect/
+segment-anything-main_lora/

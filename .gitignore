@@ -33,10 +33,12 @@ result/
 results/
 
 # Model checkpoints and heavy ML artifacts
+checkpoints/
 *.pth
 *.pt
 *.ckpt
 *.onnx
+*.safetensors
 *.npz
 *.pkl
 *.pickle
@@ -45,6 +47,8 @@ results/
 *.tmp
 *.temp
 *.log
+.coverage
+coverage.xml
 
 # 文档
 docs/
