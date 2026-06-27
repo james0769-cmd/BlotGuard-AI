@@ -15,8 +15,8 @@ Flask API
     |
     v
 Inference adapters
-    |-- Detector  -> sam_lora_aigc_detect/
-    `-- Localizer -> segment-anything-main_lora/
+    |-- Detector  -> models/source + detector weight
+    `-- Localizer -> models/source + localizer weight
 
 Runtime configuration -> configs/default.yaml
 ```
@@ -55,18 +55,18 @@ Detector.predict(image_path) -> DetectionResult
 Localizer.predict(image_path, output_path) -> LocalizationResult
 ```
 
-检测模型继续使用 512×512 输入、rank 8 LoRA 和 0–5 层适配器；定位模型继续使用 1024×1024 输入、rank 8 LoRA 和全层适配器。模型代码和权重路径由 `configs/default.yaml` 管理。
+检测模型继续使用 512×512 输入、rank 8 LoRA 和 0–5 层适配器；定位模型继续使用 1024×1024 输入、rank 8 LoRA 和全层适配器。最小推理源码跟踪在 `models/source/`，权重版本记录在 `models/manifest.yaml`，实际路径由 `configs/default.yaml` 管理。
 
 `scripts/smoke_detect.py` 与 `scripts/smoke_segment.py` 是兼容入口，保留原有 CLI 参数和 JSON 输出格式。
 
 ## 历史模型资产
 
-以下目录继续作为本地模型与实验资产使用：
+以下目录可以继续作为本地训练和实验资产使用：
 
 - `sam_lora_aigc_detect/`
 - `segment-anything-main_lora/`
 
-本阶段不移动、合并或删除其中的训练脚本、实验结果、checkpoint 和上游 React demo。这两个目录继续被 Git 忽略。重复的 SAM checkpoint 也暂不处理，避免在推理边界稳定前改变模型加载路径。
+系统运行不再依赖这两个历史目录。它们继续被 Git 忽略，也不会进入 Docker 构建上下文；前后端成员只需要仓库中跟踪的最小推理源码和 `models/weights/` 下的三份统一权重。
 
 ## 后续扩展边界
 

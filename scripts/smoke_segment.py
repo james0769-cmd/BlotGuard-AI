@@ -16,6 +16,7 @@ from backend.blotguard.inference.localizer import Localizer
 
 DEFAULT_CONFIG = load_runtime_config()
 DEFAULT_OUTPUT = ROOT / "outputs" / "smoke_segment_mask.png"
+FIXTURE_IMAGE = ROOT / "tests" / "fixtures" / "western_blot_sample.png"
 
 
 def default_image():
@@ -31,6 +32,7 @@ def default_image():
         / "western_blots_dataset"
         / "real"
         / "*.png",
+        FIXTURE_IMAGE,
     ]
     for pattern in patterns:
         for path in pattern.parent.glob(pattern.name):

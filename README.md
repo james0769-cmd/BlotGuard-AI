@@ -18,12 +18,26 @@ backend/                       Flask API、配置和模型推理适配层
   tests/                       后端测试
 frontend/                      Angular 22 前端工作区
 configs/default.yaml           默认模型与数据路径
+models/                        可跟踪推理源码、权重清单和本地权重目录
 deploy/                        部署边界说明
 docs/architecture.md           系统架构说明
 scripts/                       兼容的模型 smoke 命令
-sam_lora_aigc_detect/          历史检测模型目录，本地保留且不入库
-segment-anything-main_lora/    历史定位模型目录，本地保留且不入库
+tests/fixtures/                固定 smoke 测试图片
 ```
+
+历史训练工作区 `sam_lora_aigc_detect/` 和 `segment-anything-main_lora/` 可在本地保留，但不再是系统运行依赖。
+
+## 模型权重
+
+推理源码已经包含在仓库中。每位成员只需将统一版本的三份权重放入 `models/weights/`，目录和文件名见 [models/README.md](models/README.md)。
+
+放置完成后校验：
+
+```bash
+python scripts/verify_model_assets.py
+```
+
+权重不会提交到 Git，也不会打入开发镜像；Docker Compose 会从本地仓库目录挂载它们。
 
 ## 环境准备
 
@@ -39,12 +53,26 @@ pip install -r requirements.txt
 
 ```bash
 cd frontend
-npm install
+npm ci
 ```
 
-仓库不提交 `node_modules`。首次安装依赖后应提交 npm 生成的 lockfile。
+仓库提交 `package-lock.json`，但不提交 `node_modules`。
 
 ## 启动开发环境
+
+推荐使用统一的 CPU Docker 开发环境：
+
+```bash
+docker compose -f compose.dev.yaml up --build
+```
+
+启动后：
+
+- Angular：`http://localhost:4200`
+- Flask：`http://localhost:5000`
+- 健康检查：`http://localhost:5000/api/v1/health`
+
+也可以使用本机环境分别启动。
 
 在项目根目录启动后端：
 
@@ -70,7 +98,7 @@ npm start
 ```bash
 python scripts/smoke_detect.py \
   --device cpu \
-  --image sam_lora_aigc_detect/original_image.png
+  --image tests/fixtures/western_blot_sample.png
 ```
 
 定位：
@@ -78,7 +106,7 @@ python scripts/smoke_detect.py \
 ```bash
 python scripts/smoke_segment.py \
   --device cpu \
-  --image sam_lora_aigc_detect/original_image.png \
+  --image tests/fixtures/western_blot_sample.png \
   --output outputs/smoke_segment_mask.png
 ```
 

@@ -2,18 +2,18 @@ project_root: ..
 data_root: data
 
 detect:
-  code_dir: sam_lora_aigc_detect
-  sam_checkpoint: sam_lora_aigc_detect/pretrained_weights/sam_vit_b_01ec64.pth
-  lora_weight: sam_lora_aigc_detect/Ablation/layer1_5/rank8-img_size512-vit_b-best_f1.pth
+  code_dir: models/source
+  sam_checkpoint: models/weights/sam_vit_b_01ec64.pth
+  lora_weight: models/weights/detector/rank8-img_size512-vit_b-best_f1.pth
   model_type: vit_b
   image_size: 512
   rank: 8
   lora_layers: [0, 1, 2, 3, 4, 5]
 
 segment:
-  code_dir: segment-anything-main_lora
-  sam_checkpoint: segment-anything-main_lora/pretrained_weights/sam_vit_b_01ec64.pth
-  lora_weight: segment-anything-main_lora/western_blot/weight_1024/rank8-img_size1024-vit_b-best_f1.pth
+  code_dir: models/source
+  sam_checkpoint: models/weights/sam_vit_b_01ec64.pth
+  lora_weight: models/weights/localizer/rank8-img_size1024-vit_b-best_f1.pth
   model_type: vit_b
   image_size: 1024
   rank: 8

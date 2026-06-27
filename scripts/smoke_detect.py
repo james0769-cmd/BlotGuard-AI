@@ -15,6 +15,7 @@ from backend.blotguard.inference.detector import Detector
 
 
 DEFAULT_CONFIG = load_runtime_config()
+FIXTURE_IMAGE = ROOT / "tests" / "fixtures" / "western_blot_sample.png"
 
 
 def default_image():
@@ -30,7 +31,7 @@ def default_image():
         / "synth"
         / "stylegan2ada"
         / "*.png",
-        DEFAULT_CONFIG.detect.code_dir / "original_image.png",
+        FIXTURE_IMAGE,
     ]
     for pattern in patterns:
         for path in pattern.parent.glob(pattern.name):

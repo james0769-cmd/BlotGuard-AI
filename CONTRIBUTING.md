@@ -41,21 +41,29 @@ pip install -r requirements-dev.txt
 
 ```bash
 cd frontend
-npm install
+npm ci
 ```
 
-如果仓库已有 `package-lock.json`，应使用 `npm ci`。首次 lockfile 由环境负责人通过独立 PR 生成，普通功能 PR 不应顺带更换依赖解析结果。
+`package-lock.json` 必须与 `package.json` 同步提交。普通功能 PR 不应顺带升级依赖或重新解析整个 lockfile。
 
 ## 3. 模型与权重
 
-每位成员在本地准备以下目录及权重：
+推理所需源码已经跟踪在 `models/source/`。每位成员只需在本地准备以下权重目录：
 
 ```text
-sam_lora_aigc_detect/
-segment-anything-main_lora/
+models/weights/
+├── sam_vit_b_01ec64.pth
+├── detector/rank8-img_size512-vit_b-best_f1.pth
+└── localizer/rank8-img_size1024-vit_b-best_f1.pth
 ```
 
-默认路径和推理参数位于 `configs/default.yaml`。如果个人机器路径不同，请创建不会入库的本地配置：
+具体准备方式见 `models/README.md`。放置完成后必须运行：
+
+```bash
+python scripts/verify_model_assets.py
+```
+
+默认路径和推理参数位于 `configs/default.yaml`。如果确需使用其他路径，请创建不会入库的本地配置：
 
 ```bash
 cp configs/default.yaml configs/<name>.local.yaml
@@ -66,7 +74,7 @@ BLOTGUARD_CONFIG=configs/<name>.local.yaml python scripts/smoke_detect.py
 
 - 不要为了适配个人路径修改 `configs/default.yaml`。
 - `*.pth`、`*.pt`、`*.ckpt`、`*.onnx` 等模型文件不得提交到 Git。
-- 两个历史模型目录默认只作为本地运行依赖，不在普通前后端 PR 中修改、移动或清理。
+- 两个历史模型目录只用于训练与实验，不在普通前后端 PR 中修改、移动或清理。
 - 模型版本发生变化时，PR 必须注明权重文件名、SHA-256 和对应推理参数。
 
 ## 4. 分支工作流
@@ -171,11 +179,11 @@ npm run build
 ```bash
 python scripts/smoke_detect.py \
   --device cpu \
-  --image sam_lora_aigc_detect/original_image.png
+  --image tests/fixtures/western_blot_sample.png
 
 python scripts/smoke_segment.py \
   --device cpu \
-  --image sam_lora_aigc_detect/original_image.png \
+  --image tests/fixtures/western_blot_sample.png \
   --output outputs/smoke_segment_mask.png
 
 shasum -a 256 outputs/smoke_segment_mask.png

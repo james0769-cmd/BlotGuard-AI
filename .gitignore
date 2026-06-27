@@ -41,6 +41,7 @@ results/
 
 # Model checkpoints and heavy ML artifacts
 checkpoints/
+models/weights/
 *.pth
 *.pt
 *.ckpt
@@ -62,10 +63,6 @@ docs/*
 !docs/architecture.md
 AGENTS.md
 
-# Upstream/original model code kept outside git for the first smoke-test stage
+# Historical training workspaces kept outside the system repository
 sam_lora_aigc_detect/
 segment-anything-main_lora/
-
-# temperary
-Dockerfile
-.dockerignore

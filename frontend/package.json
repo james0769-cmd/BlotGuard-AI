@@ -2,9 +2,14 @@
   "name": "blotguard-web",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=26.0.0 <27",
+    "npm": ">=11.0.0 <12"
+  },
   "scripts": {
     "ng": "ng",
     "start": "ng serve --proxy-config proxy.conf.json",
+    "start:docker": "ng serve --host 0.0.0.0 --proxy-config proxy.docker.conf.json",
     "build": "ng build",
     "test": "ng test --watch=false"
   },
@@ -28,6 +33,6 @@
     "@angular/compiler-cli": "^22.0.0",
     "jsdom": "^26.0.0",
     "typescript": "~6.0.0",
-    "vitest": "^3.2.0"
+    "vitest": "^4.0.8"
   }
 }

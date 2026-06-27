@@ -1,0 +1,21 @@
+schema_version: 1
+weights_root: models/weights
+
+artifacts:
+  sam_vit_b:
+    path: sam_vit_b_01ec64.pth
+    sha256: ec2df62732614e57411cdcf32a23ffdf28910380d03139ee0f4fcbe91eb8c912
+    size_bytes: 375042383
+    used_by: [detect, segment]
+
+  detector_lora:
+    path: detector/rank8-img_size512-vit_b-best_f1.pth
+    sha256: 4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8
+    size_bytes: 2153517
+    used_by: [detect]
+
+  localizer_lora:
+    path: localizer/rank8-img_size1024-vit_b-best_f1.pth
+    sha256: 337ef9d06885a30ec52b8aee69dd0d9c223ef71396f16bcbd57cf5df157fe552
+    size_bytes: 17500687
+    used_by: [segment]
