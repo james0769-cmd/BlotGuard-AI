@@ -1,0 +1,37 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.home-shell {
+  display: grid;
+  place-items: start center;
+  padding: 64px 24px;
+}
+
+mat-card {
+  width: min(680px, 100%);
+}
+
+mat-card-content {
+  padding-top: 24px;
+}
+
+.service-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 28px;
+  font-weight: 500;
+}
+
+.status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2e7d32;
+}
+
+.service-status[data-state='offline'] .status-dot {
+  background: #c62828;
+}

@@ -1,0 +1,29 @@
+<mat-toolbar color="primary">
+  <span>BlotGuard AI</span>
+</mat-toolbar>
+
+<main class="home-shell">
+  <mat-card appearance="outlined">
+    <mat-card-header>
+      <mat-card-title>蛋白印迹 AI 图像生成伪造检测系统</mat-card-title>
+      <mat-card-subtitle>工程基础环境</mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <p>前端工作区已就绪，检测、定位、上传和报告功能将在后续阶段接入。</p>
+
+      <div class="service-status" [attr.data-state]="serviceState()">
+        @if (serviceState() === 'checking') {
+          <mat-spinner diameter="20" />
+          <span>正在检查后端服务</span>
+        } @else if (serviceState() === 'online') {
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>后端服务在线</span>
+        } @else {
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>后端服务未连接</span>
+        }
+      </div>
+    </mat-card-content>
+  </mat-card>
+</main>
