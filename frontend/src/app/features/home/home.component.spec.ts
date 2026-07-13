@@ -1,6 +1,7 @@
 import { TestBed } from '@angular/core/testing';
 import { of } from 'rxjs';
 
+import { DetectionApiService } from '../../core/services/detection-api.service';
 import { HealthApiService } from '../../core/services/health-api.service';
 import { HomeComponent } from './home.component';
 
@@ -14,6 +15,10 @@ describe('HomeComponent', () => {
           useValue: {
             check: () => of({ status: 'ok', service: 'blotguard-api' }),
           },
+        },
+        {
+          provide: DetectionApiService,
+          useValue: { detect: () => of() },
         },
       ],
     });

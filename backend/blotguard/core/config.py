@@ -16,6 +16,7 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs" / "default.yaml"
 
 @dataclass(frozen=True)
 class InferenceConfig:
+    enabled: bool
     code_dir: Path
     sam_checkpoint: Path
     lora_weight: Path
@@ -23,6 +24,9 @@ class InferenceConfig:
     image_size: int
     rank: int
     lora_layers: tuple[int, ...] | None
+    threshold: float
+    version: str
+    weight_sha256: str
 
 
 @dataclass(frozen=True)
@@ -41,6 +45,7 @@ def _resolve_path(root: Path, value: str | Path) -> Path:
 def _inference_config(project_root: Path, values: dict[str, Any]) -> InferenceConfig:
     layers = values.get("lora_layers")
     return InferenceConfig(
+        enabled=bool(values["enabled"]),
         code_dir=_resolve_path(project_root, values["code_dir"]),
         sam_checkpoint=_resolve_path(project_root, values["sam_checkpoint"]),
         lora_weight=_resolve_path(project_root, values["lora_weight"]),
@@ -48,6 +53,9 @@ def _inference_config(project_root: Path, values: dict[str, Any]) -> InferenceCo
         image_size=int(values["image_size"]),
         rank=int(values["rank"]),
         lora_layers=None if layers is None else tuple(int(layer) for layer in layers),
+        threshold=float(values["threshold"]),
+        version=str(values["version"]),
+        weight_sha256=str(values["weight_sha256"]),
     )
 
 

@@ -1,11 +1,11 @@
 # BlotGuard-AI
 
-BlotGuard-AI 是一个面向蛋白印迹图像的 AI 生成伪造检测系统。本仓库当前提供可扩展的 Angular + Flask 工程基础，以及两条已经验证的模型推理链：
+BlotGuard-AI 是一个面向蛋白印迹图像的 AI 生成伪造检测系统。本仓库当前提供 Angular + Flask 工程，以及已经接入的真实 Detector 推理链：
 
 - 整图判别：输出图像为 AI 生成的概率和判定结果。
-- 伪造定位：输出与原图同尺寸的二值掩膜。
+- 伪造定位：模型入口和权重已保留，本阶段默认关闭。
 
-当前阶段不包含文件上传、用户认证、数据库、PDF 报告或正式部署编排。
+当前阶段包含单图上传检测，不包含用户认证、数据库、PDF 报告或正式部署编排。
 
 ## 目录结构
 
@@ -116,12 +116,38 @@ python scripts/smoke_segment.py \
 BLOTGUARD_CONFIG=/path/to/config.yaml python scripts/smoke_detect.py
 ```
 
-## 测试
-
-安装开发依赖后运行后端测试：
+固定 25 张样例的 Detector 黄金回归结果：
 
 ```bash
-pip install -r requirements-dev.txt
+python scripts/generate_detector_regression.py --device cpu
+```
+
+该命令校验每张输入图片的 SHA-256，并生成：
+
+```text
+sample_data/western_blots_dataset/detector_golden.csv
+sample_data/western_blots_dataset/detector_golden.json
+```
+
+## 真实检测接口
+
+启动后端后，通过 multipart form 上传字段 `image`：
+
+```bash
+curl -F "image=@tests/fixtures/western_blot_sample.png" \
+  http://127.0.0.1:5000/api/v1/detect
+```
+
+响应包含 `logit`、`probability_generated`、`prediction`、`threshold`、
+`model_version`、`weight_sha256` 和 `device`。Localizer 本阶段关闭，固定返回
+`mask_image_url: null` 与 `suspect_regions: []`。
+
+## 测试
+
+安装 Python 依赖后运行后端测试：
+
+```bash
+pip install -r requirements.txt
 pytest backend/tests
 ```
 

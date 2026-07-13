@@ -2,6 +2,7 @@ project_root: ..
 data_root: data
 
 detect:
+  enabled: true
   code_dir: models/source
   sam_checkpoint: models/weights/sam_vit_b_01ec64.pth
   lora_weight: models/weights/detector/rank8-img_size512-vit_b-best_f1.pth
@@ -9,8 +10,12 @@ detect:
   image_size: 512
   rank: 8
   lora_layers: [0, 1, 2, 3, 4, 5]
+  threshold: 0.5
+  version: detector-sam-vit-b-lora-r8-l0-5-img512-4939e568
+  weight_sha256: 4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8
 
 segment:
+  enabled: false
   code_dir: models/source
   sam_checkpoint: models/weights/sam_vit_b_01ec64.pth
   lora_weight: models/weights/localizer/rank8-img_size1024-vit_b-best_f1.pth
@@ -18,3 +23,6 @@ segment:
   image_size: 1024
   rank: 8
   lora_layers: null
+  threshold: 0.5
+  version: localizer-sam-vit-b-lora-r8-all-img1024-337ef9d0
+  weight_sha256: 337ef9d06885a30ec52b8aee69dd0d9c223ef71396f16bcbd57cf5df157fe552

@@ -114,5 +114,10 @@ class Detector:
             device=str(self.device),
             logit=float(logit.detach().cpu()),
             probability_generated=probability,
-            prediction="generated" if probability > 0.5 else "original",
+            prediction=(
+                "generated" if probability > self.config.threshold else "original"
+            ),
+            threshold=self.config.threshold,
+            model_version=self.config.version,
+            weight_sha256=self.config.weight_sha256,
         )

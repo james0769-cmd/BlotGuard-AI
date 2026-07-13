@@ -14,6 +14,9 @@ class DetectionResult:
     logit: float
     probability_generated: float
     prediction: str
+    threshold: float
+    model_version: str
+    weight_sha256: str
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

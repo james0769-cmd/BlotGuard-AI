@@ -11,6 +11,10 @@ def test_default_config_resolves_from_project_root():
     )
     assert config.detect.image_size == 512
     assert config.detect.lora_layers == (0, 1, 2, 3, 4, 5)
+    assert config.detect.enabled is True
+    assert config.detect.threshold == 0.5
+    assert config.detect.version == "detector-sam-vit-b-lora-r8-l0-5-img512-4939e568"
     assert config.segment.image_size == 1024
     assert config.segment.lora_layers is None
     assert config.segment.code_dir == PROJECT_ROOT / "models" / "source"
+    assert config.segment.enabled is False

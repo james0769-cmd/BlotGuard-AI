@@ -10,7 +10,49 @@
     </mat-card-header>
 
     <mat-card-content>
-      <p>前端工作区已就绪，检测、定位、上传和报告功能将在后续阶段接入。</p>
+      <p>上传一张蛋白印迹图片，使用真实 Detector 模型检查 AI 生成风险。</p>
+
+      <section class="detector-panel">
+        <input
+          #fileInput
+          hidden
+          type="file"
+          accept="image/png,image/jpeg"
+          (change)="onFileSelected($event)"
+        />
+        <div class="detector-actions">
+          <button mat-stroked-button type="button" (click)="fileInput.click()">
+            选择图片
+          </button>
+          <span>{{ selectedFile()?.name || '尚未选择图片' }}</span>
+          <button
+            mat-flat-button
+            type="button"
+            [disabled]="!selectedFile() || detecting()"
+            (click)="runDetection()"
+          >
+            开始检测
+          </button>
+        </div>
+
+        @if (detecting()) {
+          <div class="detecting"><mat-spinner diameter="24" /> 正在运行模型</div>
+        }
+
+        @if (detection(); as result) {
+          <div class="detection-result">
+            <strong>
+              {{ result.prediction === 'generated' ? 'AI 生成风险较高' : 'AI 生成风险较低' }}
+            </strong>
+            <span>模型风险分：{{ result.probability_generated.toFixed(4) }}</span>
+            <small>模型：{{ result.model_version }} · 设备：{{ result.device }}</small>
+          </div>
+        }
+
+        @if (detectionError()) {
+          <p class="detection-error">{{ detectionError() }}</p>
+        }
+      </section>
 
       <div class="service-status" [attr.data-state]="serviceState()">
         @if (serviceState() === 'checking') {

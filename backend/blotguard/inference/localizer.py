@@ -130,7 +130,10 @@ class Localizer:
             mask_prob = torch.sigmoid(masks)
 
         mask_np = (
-            (mask_prob[0, 0].detach().cpu().numpy() > 0.5).astype(np.uint8) * 255
+            (mask_prob[0, 0].detach().cpu().numpy() > self.config.threshold).astype(
+                np.uint8
+            )
+            * 255
         )
         output.parent.mkdir(parents=True, exist_ok=True)
         cv2.imwrite(str(output), mask_np)

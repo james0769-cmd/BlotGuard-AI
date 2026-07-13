@@ -41,7 +41,7 @@ results/
 
 # Model checkpoints and heavy ML artifacts
 checkpoints/
-models/weights/
+models/weights/*
 *.pth
 *.pt
 *.ckpt
@@ -61,6 +61,7 @@ coverage.xml
 # Local reference documents; keep the architecture document versioned
 docs/*
 !docs/architecture.md
+!docs/model-handoff.md
 AGENTS.md
 
 # Historical training workspaces kept outside the system repository

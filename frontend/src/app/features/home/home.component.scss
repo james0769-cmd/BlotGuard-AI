@@ -17,6 +17,37 @@ mat-card-content {
   padding-top: 24px;
 }
 
+.detector-panel {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+  padding: 20px;
+  border: 1px solid #d8dbe2;
+  border-radius: 12px;
+}
+
+.detector-actions,
+.detecting,
+.detection-result {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.detection-result {
+  align-items: flex-start;
+  flex-direction: column;
+  padding: 16px;
+  background: #f3f6fb;
+  border-radius: 8px;
+}
+
+.detection-error {
+  margin: 0;
+  color: #c62828;
+}
+
 .service-status {
   display: flex;
   align-items: center;
