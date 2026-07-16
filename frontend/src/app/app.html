@@ -1,0 +1,48 @@
+<!-- 应用顶部导航栏 -->
+<mat-toolbar color="primary" class="app-toolbar">
+  <button mat-icon-button (click)="toggleSidenav()">
+    <mat-icon>menu</mat-icon>
+  </button>
+  <div class="toolbar-logo">
+    <mat-icon>fingerprint</mat-icon>
+    <span class="app-title">图像鉴伪检测系统</span>
+  </div>
+  <span class="spacer"></span>
+
+  @if (isLoggedIn()) {
+    <span class="username">
+      <mat-icon style="font-size:16px;width:16px;height:16px;vertical-align:middle;margin-right:4px">person</mat-icon>
+      {{ username() }}
+    </span>
+    <button mat-button (click)="logout()">
+      <mat-icon>logout</mat-icon>
+      退出
+    </button>
+  } @else {
+    <button mat-button routerLink="/login">
+      <mat-icon>login</mat-icon>
+      登录
+    </button>
+  }
+</mat-toolbar>
+
+<!-- 侧边导航 + 主内容区 -->
+<mat-sidenav-container class="app-container">
+  <mat-sidenav #sidenav mode="side" [opened]="sidenavOpen()">
+    <div class="nav-section-label">导航</div>
+    <mat-nav-list>
+      <a mat-list-item routerLink="/workspace" routerLinkActive="active">
+        <mat-icon matListItemIcon>cloud_upload</mat-icon>
+        <span matListItemTitle>工作台</span>
+      </a>
+      <a mat-list-item routerLink="/detection" routerLinkActive="active">
+        <mat-icon matListItemIcon>biotech</mat-icon>
+        <span matListItemTitle>鉴伪分析</span>
+      </a>
+    </mat-nav-list>
+  </mat-sidenav>
+
+  <mat-sidenav-content class="main-content">
+    <router-outlet />
+  </mat-sidenav-content>
+</mat-sidenav-container>

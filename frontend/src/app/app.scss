@@ -1,0 +1,79 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.app-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+
+  .toolbar-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    mat-icon {
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
+    }
+  }
+}
+
+.app-title {
+  margin-left: 8px;
+  font-size: 1.1rem;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.username {
+  margin-right: 12px;
+  font-size: 0.85rem;
+  opacity: 0.9;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+}
+
+.app-container {
+  flex: 1;
+}
+
+mat-sidenav {
+  width: 230px;
+  padding-top: 12px;
+  border-right: 1px solid rgba(0, 0, 0, 0.06);
+
+  .nav-section-label {
+    padding: 16px 16px 8px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #999;
+  }
+}
+
+.active {
+  background: rgba(25, 118, 210, 0.08) !important;
+  color: #1976d2 !important;
+  font-weight: 500;
+
+  mat-icon {
+    color: #1976d2;
+  }
+}
+
+.main-content {
+  padding: 0;
+  background: #f8f9fa;
+  overflow-y: auto;
+}
