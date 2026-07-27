@@ -1,0 +1,96 @@
+<div class="workspace-page">
+  <header class="page-header">
+    <h2>图像鉴伪工作台</h2>
+    <p class="subtitle">上传科研论文或图像文件，系统将自动检测 AI 生成伪造痕迹</p>
+  </header>
+
+  <!-- 拖拽上传区域 -->
+  <div class="dropzone"
+       [class.drag-over]="isDragOver()"
+       [class.uploading]="uploadStatus() === 'uploading'"
+       (drop)="onDrop($event)"
+       (dragover)="onDragOver($event)"
+       (dragleave)="onDragLeave($event)">
+
+    @if (uploadStatus() === 'uploading') {
+      <mat-icon class="upload-icon spinning">sync</mat-icon>
+      <p class="upload-text">正在上传... {{ uploadProgress() }}%</p>
+      <mat-progress-bar mode="determinate" [value]="uploadProgress()"></mat-progress-bar>
+    } @else if (uploadStatus() === 'success') {
+      <mat-icon class="upload-icon success">check_circle</mat-icon>
+      <p class="upload-text">上传成功！文件已进入分析队列</p>
+      <button mat-stroked-button (click)="uploadStatus.set('idle')">继续上传</button>
+    } @else {
+      <mat-icon class="upload-icon">cloud_upload</mat-icon>
+      <p class="upload-text">将文件拖拽到此处</p>
+      <p class="upload-hint">或者</p>
+      <input type="file" #fileInput hidden
+             accept=".pdf,.docx,.doc,.jpg,.jpeg,.png,.tiff"
+             (change)="onFileSelected($event)" />
+      <button mat-raised-button color="primary" (click)="fileInput.click()">
+        <mat-icon>folder_open</mat-icon>
+        选择文件
+      </button>
+      <p class="format-hint">支持格式：PDF / Word / JPG / PNG / TIFF</p>
+    }
+  </div>
+
+  <!-- 已上传文件列表 -->
+  @if (uploadedFiles().length > 0) {
+    <section class="file-list-section">
+      <h3>
+        <mat-icon>history</mat-icon>
+        检测记录
+      </h3>
+
+      <table mat-table [dataSource]="uploadedFiles()" class="file-table">
+        <!-- 文件名 -->
+        <ng-container matColumnDef="fileName">
+          <th mat-header-cell *matHeaderCellDef>文件名</th>
+          <td mat-cell *matCellDef="let file">
+            <div class="file-name-cell">
+              <mat-icon class="file-icon">description</mat-icon>
+              {{ file.fileName }}
+            </div>
+          </td>
+        </ng-container>
+
+        <!-- 大小 -->
+        <ng-container matColumnDef="fileSize">
+          <th mat-header-cell *matHeaderCellDef>大小</th>
+          <td mat-cell *matCellDef="let file">{{ formatFileSize(file.fileSize) }}</td>
+        </ng-container>
+
+        <!-- 状态 -->
+        <ng-container matColumnDef="status">
+          <th mat-header-cell *matHeaderCellDef>状态</th>
+          <td mat-cell *matCellDef="let file">
+            <span class="status-dot" [style.backgroundColor]="getStatusColor(file.status)"></span>
+            {{ getStatusLabel(file.status) }}
+          </td>
+        </ng-container>
+
+        <!-- 上传时间 -->
+        <ng-container matColumnDef="uploadTime">
+          <th mat-header-cell *matHeaderCellDef>上传时间</th>
+          <td mat-cell *matCellDef="let file">{{ file.uploadTime }}</td>
+        </ng-container>
+
+        <!-- 操作 -->
+        <ng-container matColumnDef="actions">
+          <th mat-header-cell *matHeaderCellDef>操作</th>
+          <td mat-cell *matCellDef="let file">
+            <button mat-icon-button matTooltip="查看详情"
+                    [disabled]="file.status !== 'completed'"
+                    (click)="viewDetail(file)">
+              <mat-icon>visibility</mat-icon>
+            </button>
+          </td>
+        </ng-container>
+
+        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: displayedColumns;" class="file-row"></tr>
+      </table>
+    </section>
+  }
+</div>
