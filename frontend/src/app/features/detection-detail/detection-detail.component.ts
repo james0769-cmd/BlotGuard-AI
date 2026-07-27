@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, signal } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActivatedRoute } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { Subject } from 'rxjs';
 import { CanvasViewerComponent } from './canvas-viewer/canvas-viewer.component';
 import { SuspectListComponent } from './suspect-list/suspect-list.component';
 import { ProbabilityChartComponent } from './probability-chart/probability-chart.component';
@@ -16,6 +17,7 @@ import {
   SuspectRegion,
 } from '../../core/services/mock-data.service';
 import { ReportService } from '../../core/services/report.service';
+import { TaskService, TaskResult } from '../../core/services/task.service';
 
 /**
  * DetectionDetailComponent — 鉴伪详情页（核心页面）
@@ -223,7 +225,7 @@ import { ReportService } from '../../core/services/report.service';
     }
   `],
 })
-export class DetectionDetailComponent implements OnInit {
+export class DetectionDetailComponent implements OnInit, OnDestroy {
   @ViewChild('canvasViewer') canvasViewer!: CanvasViewerComponent;
 
   result = signal<DetectionResult | null>(null);
@@ -233,21 +235,77 @@ export class DetectionDetailComponent implements OnInit {
   selectedRegionId = signal<number | null>(null);
 
   downloading = signal(false);
+  private destroy$ = new Subject<void>();
 
   constructor(
     private route: ActivatedRoute,
     private mockDataService: MockDataService,
+    private taskService: TaskService,
     private reportService: ReportService,
     private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
-    const id = this.route.snapshot.paramMap.get('id') || '1';
-    // 模拟后端加载延迟
-    setTimeout(() => {
-      this.result.set(this.mockDataService.getDetectionResult(id));
-      this.loading.set(false);
-    }, 800);
+    const taskId = this.route.snapshot.paramMap.get('taskId') || '';
+
+    // Gallery 样本 ID 格式：'real-xxxxx' / 'cyclegan-xxxxx' 等
+    const isSample = this.mockDataService.getSampleEntries?.()?.some((s: { id: string }) => s.id === taskId);
+    if (isSample || !taskId) {
+      setTimeout(() => {
+        this.result.set(this.mockDataService.getDetectionResult(taskId));
+        this.loading.set(false);
+      }, 400);
+      return;
+    }
+
+    // 真实后端任务：轮询状态直到完成
+    this.taskService.pollTaskStatus(taskId, this.destroy$).subscribe({
+      next: (status) => {
+        if (status.status === 'completed') {
+          this.taskService.getTaskResult(taskId).subscribe({
+            next: (r) => {
+              this.result.set(this.mapTaskResult(taskId, r));
+              this.loading.set(false);
+            },
+            error: () => {
+              this.result.set(this.mockDataService.getDetectionResult(taskId));
+              this.loading.set(false);
+            },
+          });
+        } else if (status.status === 'failed') {
+          this.loading.set(false);
+          this.snackBar.open(status.error_message || '检测任务失败', '关闭', { duration: 5000 });
+        }
+      },
+      error: () => {
+        // 后端不可达时回退 mock
+        this.result.set(this.mockDataService.getDetectionResult(taskId));
+        this.loading.set(false);
+      },
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private mapTaskResult(taskId: string, r: TaskResult): DetectionResult {
+    return {
+      id: taskId,
+      fileName: r.filename,
+      uploadTime: '',
+      status: 'completed',
+      originalImageUrl: r.original_image_url,
+      maskImageUrl: r.mask_image_url,
+      overallScore: r.overall_score,
+      overallRisk: r.risk_level,
+      overallConfidence: r.overall_score,
+      modelVersion: r.model_version,
+      processingTime: r.processing_time,
+      suspectRegions: r.suspect_regions,
+      modelProbabilities: r.model_probabilities,
+    };
   }
 
   onRegionSelected(region: SuspectRegion): void {

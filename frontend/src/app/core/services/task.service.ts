@@ -7,11 +7,13 @@ import { Observable, timer, switchMap, takeWhile, tap, map, Subject, takeUntil }
  */
 export interface TaskStatus {
   task_id: string;
+  file_name: string;
+  file_size: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress?: number;       // 0~100
+  progress: number;       // 0~100
   created_at: string;
-  updated_at: string;
-  error_message?: string;
+  completed_at: string | null;
+  error_message: string | null;
 }
 
 /**

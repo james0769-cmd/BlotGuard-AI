@@ -139,12 +139,11 @@ export class WorkspaceComponent {
             ? Math.round((100 * event.loaded) / event.total)
             : 0;
           this.uploadProgress.set(percent);
-        } else if (event.type === HttpEventType.Response) {
-          this.handleUploadSuccess(file);
+        } else if (event.type === HttpEventType.Response && event.body) {
+          this.handleUploadSuccess(file, event.body.task_id);
         }
       },
       error: () => {
-        // 后端未启动时，模拟上传过程（演示用）
         this.simulateUploadProgress(file);
       },
     });
@@ -167,17 +166,17 @@ export class WorkspaceComponent {
   }
 
   /** 上传完成后的处理：更新列表 + 延迟跳转到详情页 */
-  private handleUploadSuccess(file: File): void {
+  private handleUploadSuccess(file: File, taskId?: string): void {
     this.uploadStatus.set('success');
     this.uploadProgress.set(100);
     this.mockDataService.addUploadedFile(file.name, file.size);
     this.uploadedFiles.set(this.mockDataService.getUploadedFiles());
 
-    // 1.5 秒后自动跳转到检测详情页
     setTimeout(() => {
-      const latestFile = this.uploadedFiles()[0];
-      if (latestFile) {
-        this.router.navigate(['/detection', latestFile.id]);
+      // 优先使用后端返回的真实 task_id，否则回退 mock
+      const id = taskId ?? this.uploadedFiles()[0]?.id;
+      if (id) {
+        this.router.navigate(['/detection', id]);
       }
     }, 1500);
   }

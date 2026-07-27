@@ -4,8 +4,13 @@ import { Observable } from 'rxjs';
 
 export interface UploadResponse {
   task_id: string;
-  filename: string;
+  file_name: string;
+  file_size: number;
   status: string;
+  progress: number;
+  created_at: string;
+  completed_at: string | null;
+  error_message: string | null;
 }
 
 /**

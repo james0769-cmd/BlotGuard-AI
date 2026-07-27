@@ -17,6 +17,11 @@ export const routes: Routes = [
       import('./features/workspace/workspace.component').then((m) => m.WorkspaceComponent),
   },
   {
+    path: 'gallery',
+    loadComponent: () =>
+      import('./features/gallery/gallery.component').then((m) => m.GalleryComponent),
+  },
+  {
     path: 'detection/:taskId',
     loadComponent: () =>
       import('./features/detection-detail/detection-detail.component').then(
