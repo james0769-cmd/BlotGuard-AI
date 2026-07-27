@@ -1,69 +1,13 @@
-.vscode/
-
-# macOS
 .DS_Store
-
-# Python cache
+.env
+.venv/
 __pycache__/
 *.py[cod]
-*$py.class
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
-
-# Virtual environments
-.venv/
-venv/
-env/
-
-# Frontend dependencies and build output
-frontend/node_modules/
-frontend/dist/
-frontend/.angular/
-
-# Jupyter
-.ipynb_checkpoints/
-
-# Local config and secrets
-.env
-.env.*
-!.env.example
-configs/*.local.yaml
-
-# Data, outputs, and generated artifacts
-data
-data/
-outputs/
-runs/
-logs/
-result/
-results/
-
-# Model checkpoints and heavy ML artifacts
-checkpoints/
-models/weights/*
-*.pth
-*.pt
-*.ckpt
-*.onnx
-*.safetensors
-*.npz
-*.pkl
-*.pickle
-
-# Temporary files
-*.tmp
-*.temp
-*.log
 .coverage
-coverage.xml
+htmlcov/
 
-# Local reference documents; keep the architecture document versioned
-docs/*
-!docs/architecture.md
-!docs/model-handoff.md
-AGENTS.md
-
-# Historical training workspaces kept outside the system repository
-sam_lora_aigc_detect/
-segment-anything-main_lora/
+var/
+outputs/
+models/weights/
+*.local.yaml

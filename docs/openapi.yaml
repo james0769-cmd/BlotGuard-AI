@@ -1,0 +1,366 @@
+openapi: 3.1.0
+info:
+  title: BlotGuard-AI API
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /api/v1/health/live:
+    get:
+      operationId: getLiveness
+      responses:
+        "200":
+          description: Process is alive
+  /api/v1/health/ready:
+    get:
+      operationId: getReadiness
+      responses:
+        "200":
+          description: Service is ready
+        "503":
+          description: A dependency is not ready
+  /api/v1/analyses:
+    post:
+      operationId: createAnalysis
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                localize:
+                  type: boolean
+                  default: false
+      responses:
+        "202":
+          description: Analysis task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisTask"
+        "400":
+          $ref: "#/components/responses/Error"
+        "413":
+          $ref: "#/components/responses/Error"
+        "415":
+          $ref: "#/components/responses/Error"
+        "422":
+          $ref: "#/components/responses/Error"
+  /api/v1/analyses/{task_id}:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: getAnalysis
+      responses:
+        "200":
+          description: Analysis task
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalysisTask"
+        "404":
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteAnalysis
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          $ref: "#/components/responses/Error"
+        "409":
+          $ref: "#/components/responses/Error"
+  /api/v1/analyses/{task_id}/report:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: downloadReport
+      responses:
+        "200":
+          description: PDF report
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "409":
+          $ref: "#/components/responses/Error"
+  /api/v1/artifacts/{artifact_id}:
+    get:
+      operationId: getArtifact
+      parameters:
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: download
+          in: query
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Artifact binary
+        "404":
+          $ref: "#/components/responses/Error"
+  /api/auth/login:
+    post:
+      operationId: frontendMockLogin
+      description: Frontend v0.1 compatibility mock login.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: Mock login response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+  /api/tasks/upload:
+    post:
+      operationId: frontendUploadTask
+      description: Frontend v0.1 compatibility upload endpoint.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        "201":
+          description: Frontend task summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FrontendTask"
+        "400":
+          $ref: "#/components/responses/FrontendError"
+        "413":
+          $ref: "#/components/responses/FrontendError"
+        "415":
+          $ref: "#/components/responses/FrontendError"
+  /api/tasks/{task_id}:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: frontendGetTask
+      description: Frontend v0.1 compatibility polling endpoint.
+      responses:
+        "200":
+          description: Frontend task summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FrontendTask"
+        "404":
+          $ref: "#/components/responses/FrontendError"
+  /api/tasks/{task_id}/result:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: frontendGetTaskResult
+      description: Frontend v0.1 compatibility result endpoint.
+      responses:
+        "200":
+          description: Frontend result view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FrontendResult"
+        "404":
+          $ref: "#/components/responses/FrontendError"
+  /api/tasks/{task_id}/report:
+    parameters:
+      - $ref: "#/components/parameters/TaskId"
+    get:
+      operationId: frontendDownloadReport
+      description: Frontend v0.1 compatibility PDF report download.
+      responses:
+        "200":
+          description: PDF report
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/FrontendError"
+        "409":
+          $ref: "#/components/responses/FrontendError"
+components:
+  parameters:
+    TaskId:
+      name: task_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    Error:
+      description: Error response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    FrontendError:
+      description: Frontend compatibility error response
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/FrontendError"
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+    LoginResponse:
+      type: object
+      required: [access_token, user]
+      properties:
+        access_token:
+          type: string
+        user:
+          type: object
+          required: [id, username, role]
+          properties:
+            id:
+              type: integer
+            username:
+              type: string
+            role:
+              type: string
+    FrontendTask:
+      type: object
+      required: [task_id, file_name, status, progress, created_at]
+      properties:
+        task_id:
+          type: string
+          format: uuid
+        file_name:
+          type: string
+        file_size:
+          type: [integer, "null"]
+        status:
+          enum: [pending, processing, completed, failed]
+        progress:
+          type: integer
+          minimum: 0
+          maximum: 100
+        created_at:
+          type: [string, "null"]
+          format: date-time
+        completed_at:
+          type: [string, "null"]
+          format: date-time
+        error_message:
+          type: [string, "null"]
+    FrontendResult:
+      allOf:
+        - $ref: "#/components/schemas/FrontendTask"
+        - type: object
+          properties:
+            original_image_url:
+              type: [string, "null"]
+            mask_image_url:
+              type: [string, "null"]
+              description: Null until localization output is confirmed.
+            overall_score:
+              type: [number, "null"]
+              minimum: 0
+              maximum: 1
+            overall_risk:
+              type: [string, "null"]
+              enum: [high, medium, low, null]
+            suspect_regions:
+              type: array
+              items:
+                type: object
+              description: Empty until localization output is confirmed.
+            model_probabilities:
+              type: array
+              items:
+                type: object
+              description: Empty until multi-generator probabilities are confirmed.
+            model_version:
+              type: [string, "null"]
+            processing_time:
+              type: [number, "null"]
+            conclusion:
+              type: string
+    AnalysisTask:
+      type: object
+      required: [schema_version, task_id, status, input, items]
+      properties:
+        schema_version:
+          const: "1.0"
+        task_id:
+          type: string
+          format: uuid
+        status:
+          enum: [queued, extracting, inferencing, reporting, succeeded, failed, cancelled]
+        input:
+          type: object
+        model:
+          type: [object, "null"]
+        summary:
+          type: object
+        items:
+          type: array
+          items:
+            type: object
+        artifacts:
+          type: array
+          items:
+            type: object
+        warnings:
+          type: array
+          items:
+            type: string
+        error:
+          type: [object, "null"]
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+            request_id:
+              type: [string, "null"]
+    FrontendError:
+      type: object
+      required: [error, message, request_id]
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        request_id:
+          type: [string, "null"]

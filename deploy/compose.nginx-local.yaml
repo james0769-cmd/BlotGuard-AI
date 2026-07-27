@@ -1,0 +1,13 @@
+name: blotguard-nginx-local
+
+services:
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: blotguard-nginx-local
+    ports:
+      - "8080:80"
+    volumes:
+      - ./nginx.local-backend.conf:/etc/nginx/conf.d/default.conf:ro
+      - ${BLOTGUARD_FRONTEND_DIST:-../frontend/dist/blotguard-web/browser}:/usr/share/nginx/html:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

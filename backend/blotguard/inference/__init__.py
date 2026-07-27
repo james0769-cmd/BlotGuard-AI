@@ -1,7 +1,5 @@
-"""Stable inference interfaces for BlotGuard models."""
+"""PyTorch inference adapters with no dependency on Flask."""
 
-from .contracts import DetectionResult, LocalizationResult
-from .detector import Detector
-from .localizer import Localizer
+from .provider import InferenceProvider
 
-__all__ = ["DetectionResult", "Detector", "LocalizationResult", "Localizer"]
+__all__ = ["InferenceProvider"]
