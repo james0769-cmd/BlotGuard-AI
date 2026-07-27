@@ -103,11 +103,10 @@ pip install -r requirements-model.txt
 models/weights/sam_vit_b_01ec64.pth
 ```
 
-当前 detector LoRA 权重直接引用材料目录中的：
+当前 detector LoRA 权重放在仓库约定的本地权重目录中：
 
 ```text
-model_source/sam_lora_aigc_detect/Ablation/layer1_5/
-  rank8-img_size512-vit_b-best_f1.pth
+models/weights/detector/rank8-img_size512-vit_b-best_f1.pth
 ```
 
 校验：

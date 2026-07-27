@@ -16,14 +16,22 @@
 ## 验证记录
 
 ```text
-后端 pytest：13 passed
+后端 pytest：19 passed
 前端 Angular build：通过
 前端构建产物：frontend/dist/blotguard-web/browser/index.html
 真实模型：GitHub 25 张黄金样本逐条一致，25/25
 真实后端链路：上传 201、结果 200、PDF 报告 200
 ```
 
-## 提交上游仓库前必须做的事
+## 合并后状态
+
+本后端改动已通过 PR #2 合并到 `main`。合并后的全仓验收结果：
+
+- 后端测试：`19 passed`。
+- GitHub 固定 25 张样本真实推理：logit、score、prediction 均 25/25 一致。
+- 前端 Angular build：通过，产物目录为 `frontend/dist/blotguard-web`。
+
+## 后续协作事项
 
 1. 在最新 `main` 上创建 `feat/backend-analysis-api` 分支。
 2. 只提交后端 API、服务、持久化、报告、测试、部署配置和文档；不要提交
