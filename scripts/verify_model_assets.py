@@ -1,18 +1,17 @@
 #!/usr/bin/env python
-"""Verify local model weights against the tracked artifact manifest."""
+"""Verify configured model assets and their tracked SHA-256 values."""
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 from pathlib import Path
 import sys
 
-import yaml
-
 
 ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_MANIFEST = ROOT / "models" / "manifest.yaml"
+sys.path.insert(0, str(ROOT))
+
+from backend.blotguard.core.config import load_runtime_config
 
 
 def sha256(path: Path) -> str:
@@ -24,44 +23,34 @@ def sha256(path: Path) -> str:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Verify BlotGuard model weights.")
-    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
-    parser.add_argument("--weights-root", type=Path, default=None)
-    args = parser.parse_args()
-
-    manifest_path = args.manifest.expanduser().resolve()
-    with manifest_path.open("r", encoding="utf-8") as stream:
-        manifest = yaml.safe_load(stream)
-
-    weights_root = args.weights_root
-    if weights_root is None:
-        weights_root = ROOT / manifest["weights_root"]
-    weights_root = weights_root.expanduser().resolve()
-
+    config = load_runtime_config()
     failed = False
-    for name, expected in manifest["artifacts"].items():
-        path = weights_root / expected["path"]
-        if not path.is_file():
-            print(f"MISSING {name}: {path}")
-            failed = True
+    for name, model in (
+        ("detector", config.detector),
+        ("localizer", config.localizer),
+    ):
+        if not model.enabled:
+            print(f"SKIP {name}: disabled")
             continue
-
-        actual_size = path.stat().st_size
-        actual_sha256 = sha256(path)
-        if actual_size != expected["size_bytes"]:
-            print(
-                f"INVALID {name}: size {actual_size}, "
-                f"expected {expected['size_bytes']}"
-            )
-            failed = True
-            continue
-        if actual_sha256 != expected["sha256"]:
-            print(f"INVALID {name}: sha256 {actual_sha256}")
-            failed = True
-            continue
-
-        print(f"OK {name}: {path}")
-
+        for label, path in (
+            ("code", model.code_dir),
+            ("sam", model.sam_checkpoint),
+            ("lora", model.lora_weight),
+        ):
+            if not path.exists():
+                print(f"MISSING {name}.{label}: {path}")
+                failed = True
+                continue
+            if label == "lora":
+                actual = sha256(path)
+                if actual != model.weight_sha256:
+                    print(
+                        f"INVALID {name}.{label}: sha256 {actual}, "
+                        f"expected {model.weight_sha256}"
+                    )
+                    failed = True
+                    continue
+            print(f"OK {name}.{label}: {path}")
     return 1 if failed else 0
 
 

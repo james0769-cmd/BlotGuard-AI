@@ -1,1 +1,1 @@
-"""BlotGuard backend package root."""
+"""BlotGuard backend package."""

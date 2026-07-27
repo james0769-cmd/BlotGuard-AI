@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "blotguard-backend"
+version = "0.1.0"
+description = "Backend API for Western blot AI-generation detection"
+requires-python = ">=3.10,<3.13"
+dependencies = [
+  "Flask>=3.1,<4",
+  "Flask-Cors>=5,<7",
+  "gunicorn>=22,<24",
+  "Pillow>=11,<13",
+  "pypdf>=5,<7",
+  "PyMySQL>=1.1,<2",
+  "PyYAML>=6,<7",
+  "reportlab>=4.2,<5",
+  "SQLAlchemy>=2.0,<3",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<9", "pytest-cov>=5,<7"]
+model = [
+  "numpy==1.26.4",
+  "opencv-python-headless==4.11.0.86",
+  "torch==2.6.0",
+  "torchvision==0.21.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["backend*"]
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+addopts = "-q"
+pythonpath = ["."]

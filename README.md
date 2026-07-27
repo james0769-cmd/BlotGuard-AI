@@ -1,162 +1,172 @@
-# BlotGuard-AI
+# BlotGuard-AI 后端
 
-BlotGuard-AI 是一个面向蛋白印迹图像的 AI 生成伪造检测系统。本仓库当前提供 Angular + Flask 工程，以及已经接入的真实 Detector 推理链：
+本目录已经包含一套可运行的蛋白印迹 AI 生成风险检测后端。系统以
+Flask 为 HTTP 边界，以 SQLAlchemy 保存任务元数据，以任务隔离目录保存上传
+文件、提取图片和报告，并通过现有 LoRA-SAM 研究代码执行整图检测。
 
-- 整图判别：输出图像为 AI 生成的概率和判定结果。
-- 伪造定位：模型入口和权重已保留，本阶段默认关闭。
+## 已实现
 
-当前阶段包含单图上传检测，不包含用户认证、数据库、PDF 报告或正式部署编排。
+- JPG、JPEG、JFIF、PNG、TIFF、PDF、DOCX 上传。
+- 文件大小、扩展名、文件签名、图片尺寸和 DOCX 解压规模校验。
+- PDF 内嵌图片和 DOCX 媒体图片提取。
+- 持久化任务状态和逐图检测结果。
+- 真实 PyTorch 检测适配器和显式开发 mock。
+- 中文 PDF 报告。
+- 不透明 artifact 下载地址，不暴露本机文件路径。
+- 统一 JSON 错误格式和 `X-Request-ID`。
+- SQLite 本地开发及 MySQL 部署配置。
+- Flask、Gunicorn、Docker Compose 和 NGINX 配置。
+- OpenAPI 3.1 接口文档和端到端测试。
+- 前端 v0.1 草案兼容接口：`/api/auth/login`、`/api/tasks/upload`、
+  `/api/tasks/<task_id>`、`/api/tasks/<task_id>/result`、
+  `/api/tasks/<task_id>/report`。
 
-## 目录结构
+定位模型目前默认关闭。现有论文中的蛋白印迹模型是整图二分类模型，仓库中的
+1024 定位权重来源和业务语义仍需模型负责人确认，不能直接将其掩膜解释为
+“AI 生成区域”。
+
+## 目录
 
 ```text
-backend/                       Flask API、配置和模型推理适配层
-  blotguard/
-    api/                       HTTP 路由
-    core/                      运行时配置
-    inference/                 检测与定位接口
-  tests/                       后端测试
-frontend/                      Angular 22 前端工作区
-configs/default.yaml           默认模型与数据路径
-models/                        可跟踪推理源码、权重清单和本地权重目录
-deploy/                        部署边界说明
-docs/architecture.md           系统架构说明
-scripts/                       兼容的模型 smoke 命令
-tests/fixtures/                固定 smoke 测试图片
+backend/blotguard/
+  api/                 Flask 路由
+  core/                配置和错误类型
+  domain/              稳定结果契约
+  inference/           PyTorch 检测适配器和模型生命周期
+  persistence/         SQLAlchemy 数据模型和仓储
+  services/            上传、解析、任务、报告和文件存储
+backend/tests/          后端测试
+configs/default.yaml   默认运行配置
+deploy/nginx.conf       NGINX 反向代理
+docs/                   架构、API 和模型契约
+models/                 权重放置说明
+scripts/                开发启动和模型校验
+var/                    本地任务文件和 SQLite 数据库，运行时生成
 ```
 
-历史训练工作区 `sam_lora_aigc_detect/` 和 `segment-anything-main_lora/` 可在本地保留，但不再是系统运行依赖。
+## 快速启动
 
-## 模型权重
+Python 版本统一为 3.10。
 
-推理源码已经包含在仓库中。每位成员只需将统一版本的三份权重放入 `models/weights/`，目录和文件名见 [models/README.md](models/README.md)。
+```bash
+python3.10 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements-dev.txt
+```
 
-放置完成后校验：
+先使用开发 mock 验证 Web 全链路：
+
+```bash
+export BLOTGUARD_INFERENCE_MODE=mock
+export BLOTGUARD_EXECUTION_MODE=inline
+flask --app backend.blotguard:create_app run --debug
+```
+
+若 macOS 的 5000 端口被系统占用：
+
+```bash
+BLOTGUARD_PORT=5001 python scripts/run_dev.py
+```
+
+访问：
+
+```text
+GET http://127.0.0.1:5000/api/v1/health
+GET http://127.0.0.1:5000/api/v1/health/ready
+```
+
+上传样例：
+
+```bash
+curl -F "file=@sample_data/western_blots_dataset/real/real_img_00000.png" \
+  http://127.0.0.1:5000/api/v1/analyses
+```
+
+返回的 `task_id` 用于查询：
+
+```bash
+curl http://127.0.0.1:5000/api/v1/analyses/<task_id>
+curl -OJ http://127.0.0.1:5000/api/v1/analyses/<task_id>/report
+```
+
+## 启用真实模型
+
+安装模型运行依赖：
+
+```bash
+pip install -r requirements-model.txt
+```
+
+将 SAM ViT-B 基础权重放到：
+
+```text
+models/weights/sam_vit_b_01ec64.pth
+```
+
+当前 detector LoRA 权重直接引用材料目录中的：
+
+```text
+model_source/sam_lora_aigc_detect/Ablation/layer1_5/
+  rank8-img_size512-vit_b-best_f1.pth
+```
+
+校验：
 
 ```bash
 python scripts/verify_model_assets.py
 ```
 
-权重不会提交到 Git，也不会打入开发镜像；Docker Compose 会从本地仓库目录挂载它们。
-
-## 环境准备
-
-项目 Python 环境为 `blotguard-ai`，Python 版本为 3.10。
+三项均为 `OK` 后启动真实推理：
 
 ```bash
-conda create -n blotguard-ai python==3.10
-conda activate blotguard-ai
-pip install -r requirements.txt
+export BLOTGUARD_INFERENCE_MODE=real
+export BLOTGUARD_DEVICE=auto
+gunicorn --workers 1 --threads 2 --bind 0.0.0.0:5000 wsgi:app
 ```
 
-前端使用 Node.js 26 和 Angular 22：
+GPU 部署时每张 GPU 建议只启动一个模型进程，避免每个 worker 重复加载
+SAM 权重。正式并发扩展应将分析执行器替换为 Redis/Celery GPU worker，
+HTTP API 和任务契约无需改变。
 
-```bash
-cd frontend
-npm ci
-```
+PDF 报告会自动寻找 macOS 的 Arial Unicode/Hiragino 或 Linux 的 Noto CJK。
+自定义字体可设置 `BLOTGUARD_REPORT_FONT`，Docker 镜像已安装 Noto CJK。
 
-仓库提交 `package-lock.json`，但不提交 `node_modules`。
+## 数据库
 
-## 启动开发环境
-
-推荐使用统一的 CPU Docker 开发环境：
-
-```bash
-docker compose -f compose.dev.yaml up --build
-```
-
-启动后：
-
-- Angular：`http://localhost:4200`
-- Flask：`http://localhost:5000`
-- 健康检查：`http://localhost:5000/api/v1/health`
-
-也可以使用本机环境分别启动。
-
-在项目根目录启动后端：
-
-```bash
-flask --app backend.blotguard:create_app run --debug
-```
-
-后端健康检查地址为 `http://127.0.0.1:5000/api/v1/health`。
-
-在另一个终端启动前端：
-
-```bash
-cd frontend
-npm start
-```
-
-前端开发服务器会将 `/api` 请求代理到 Flask 的 `5000` 端口。
-
-## 模型 smoke 测试
-
-检测：
-
-```bash
-python scripts/smoke_detect.py \
-  --device cpu \
-  --image tests/fixtures/western_blot_sample.png
-```
-
-定位：
-
-```bash
-python scripts/smoke_segment.py \
-  --device cpu \
-  --image tests/fixtures/western_blot_sample.png \
-  --output outputs/smoke_segment_mask.png
-```
-
-两个命令保留原有参数和 JSON 输出字段。模型路径和参数默认读取 `configs/default.yaml`，CLI 参数优先级更高。也可以通过环境变量指定其他配置文件：
-
-```bash
-BLOTGUARD_CONFIG=/path/to/config.yaml python scripts/smoke_detect.py
-```
-
-固定 25 张样例的 Detector 黄金回归结果：
-
-```bash
-python scripts/generate_detector_regression.py --device cpu
-```
-
-该命令校验每张输入图片的 SHA-256，并生成：
+本地默认使用：
 
 ```text
-sample_data/western_blots_dataset/detector_golden.csv
-sample_data/western_blots_dataset/detector_golden.json
+sqlite:///var/blotguard.db
 ```
 
-## 真实检测接口
-
-启动后端后，通过 multipart form 上传字段 `image`：
+切换 MySQL：
 
 ```bash
-curl -F "image=@tests/fixtures/western_blot_sample.png" \
-  http://127.0.0.1:5000/api/v1/detect
+export BLOTGUARD_DATABASE_URL='mysql+pymysql://blotguard:blotguard@127.0.0.1:3306/blotguard'
 ```
 
-响应包含 `logit`、`probability_generated`、`prediction`、`threshold`、
-`model_version`、`weight_sha256` 和 `device`。Localizer 本阶段关闭，固定返回
-`mask_image_url: null` 与 `suspect_regions: []`。
+图片和报告不存数据库，而是保存在 `var/tasks/<task_id>/`。MongoDB 当前没有
+独立数据职责，因此未引入；如指导老师要求使用，应先明确它保存的唯一数据类型，
+避免与 MySQL 重复存储。
 
 ## 测试
 
-安装 Python 依赖后运行后端测试：
-
 ```bash
-pip install -r requirements.txt
-pytest backend/tests
+pytest
 ```
 
-安装前端依赖后运行：
+测试使用显式 mock，只验证上传、解析、状态、数据库、报告和下载链路。真实模型
+上线前还必须增加由模型负责人确认的黄金样本回归测试。
+
+使用真实样例运行完整 smoke：
 
 ```bash
-cd frontend
-npm test
-npm run build
+python scripts/smoke_api.py --mode mock
 ```
 
-更详细的模块边界和后续扩展位置见 [docs/architecture.md](docs/architecture.md)。
+## 关键文档
+
+- `docs/backend-architecture.md`：系统流程、模块边界和扩展路径。
+- `docs/api-contract.md`：接口、状态和错误约定。
+- `docs/model-contract.md`：当前已知模型参数和待确认事项。
+- `docs/openapi.yaml`：前后端共同使用的机器可读契约。
