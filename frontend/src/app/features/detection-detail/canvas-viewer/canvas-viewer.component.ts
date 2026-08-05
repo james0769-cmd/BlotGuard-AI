@@ -72,12 +72,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
                  [style.filter]="filterStyle()"
                  alt="原始图像底层"
                  draggable="false" />
-            <!-- 掩码叠加层 -->
-            <img [src]="maskImageUrl"
-                 class="mask-overlay"
-                 [style.opacity]="maskOpacity()"
-                 alt="SAM/LoRA 掩码"
-                 draggable="false" />
+            @if (maskAvailable && maskImageUrl) {
+              <img [src]="maskImageUrl"
+                   class="mask-overlay"
+                   [style.opacity]="maskOpacity()"
+                   alt="SAM/LoRA 掩码"
+                   draggable="false" />
+            } @else {
+              <div class="localization-message">{{ localizationMessage }}</div>
+            }
           </div>
         </div>
       </div>
@@ -163,6 +166,19 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       pointer-events: none;
     }
 
+    .localization-message {
+      position: absolute;
+      left: 50%;
+      bottom: 16px;
+      transform: translateX(-50%);
+      padding: 6px 10px;
+      border-radius: 4px;
+      background: rgba(0, 0, 0, 0.65);
+      color: #fff;
+      font-size: 0.75rem;
+      white-space: nowrap;
+    }
+
     .divider {
       width: 2px;
       background: #0f3460;
@@ -171,7 +187,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 })
 export class CanvasViewerComponent implements AfterViewInit, OnDestroy {
   @Input() originalImageUrl = '';
-  @Input() maskImageUrl = '';
+  @Input() maskAvailable = false;
+  @Input() maskImageUrl: string | null = null;
+  @Input() localizationMessage = '当前版本不提供区域定位';
   @Input() brightness = 100; // 0~200
   @Input() contrast = 100;   // 0~200
 

@@ -60,12 +60,11 @@ import { TaskService, TaskResult } from '../../core/services/task.service';
           <div class="header-left">
             <h2>{{ result()!.fileName }}</h2>
             <mat-chip-set>
-              <mat-chip [highlighted]="result()!.overallRisk === 'high'"
-                        [style.backgroundColor]="getRiskColor(result()!.overallRisk)">
+              <mat-chip [style.backgroundColor]="getRiskColor(result()!.overallRisk)">
                 {{ getRiskLabel(result()!.overallRisk) }}
               </mat-chip>
               <mat-chip>
-                综合置信度: {{ (result()!.overallConfidence * 100).toFixed(0) }}%
+                AI 生成风险分数: {{ (result()!.overallScore * 100).toFixed(0) }}%
               </mat-chip>
             </mat-chip-set>
           </div>
@@ -94,7 +93,9 @@ import { TaskService, TaskResult } from '../../core/services/task.service';
             <app-canvas-viewer
               #canvasViewer
               [originalImageUrl]="result()!.originalImageUrl"
+              [maskAvailable]="result()!.maskAvailable"
               [maskImageUrl]="result()!.maskImageUrl"
+              [localizationMessage]="result()!.localizationMessage"
               [brightness]="brightness()"
               [contrast]="contrast()">
             </app-canvas-viewer>
@@ -103,6 +104,7 @@ import { TaskService, TaskResult } from '../../core/services/task.service';
           <!-- 右侧：工具/分析侧边栏 -->
           <aside class="sidebar-section">
             <app-forensic-toolbar
+              [maskAvailable]="result()!.maskAvailable"
               (brightnessChange)="brightness.set($event)"
               (contrastChange)="contrast.set($event)"
               (maskOpacityChange)="onMaskOpacityChange($event)">
@@ -297,10 +299,11 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       uploadTime: '',
       status: 'completed',
       originalImageUrl: r.original_image_url,
+      maskAvailable: r.mask_available,
       maskImageUrl: r.mask_image_url,
+      localizationMessage: r.localization_message ?? '当前版本不提供区域定位',
       overallScore: r.overall_score,
-      overallRisk: r.risk_level,
-      overallConfidence: r.overall_score,
+      overallRisk: 'unavailable',
       modelVersion: r.model_version,
       processingTime: r.processing_time,
       suspectRegions: r.suspect_regions,
@@ -338,19 +341,13 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
 
   getRiskColor(risk: string): string {
     switch (risk) {
-      case 'high': return '#ffcdd2';
-      case 'medium': return '#fff3e0';
-      case 'low': return '#e8f5e9';
       default: return '#f5f5f5';
     }
   }
 
   getRiskLabel(risk: string): string {
     switch (risk) {
-      case 'high': return '高风险';
-      case 'medium': return '中风险';
-      case 'low': return '低风险';
-      default: return '未知';
+      default: return '风险分层待模型阈值';
     }
   }
 }

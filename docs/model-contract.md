@@ -11,7 +11,7 @@
 | LoRA rank | 8 |
 | LoRA 层 | 0-5 |
 | 预处理 | 直接缩放到正方形，再使用 SAM normalize |
-| 输出 | 单个 logit，经 sigmoid 得到风险分数 |
+| 输出 | 单个 logit，经 sigmoid 得到未校准风险分数 `score_generated` |
 | 阈值 | 0.5 |
 | LoRA SHA-256 | `4939e568...e82cad8` |
 
@@ -21,11 +21,11 @@
 `scripts/smoke_detect.py`。默认批量样本目录为
 `sample_data/western_blots_dataset/`，当前包含 25 张联调图：
 
-- `real/`：5 张真实样本。
-- `synth/cyclegan/`：5 张合成样本。
-- `synth/ddpm/`：5 张合成样本。
-- `synth/pix2pix/`：5 张合成样本。
-- `synth/stylegan2ada/`：5 张合成样本。
+- `real/`：13 张真实样本。
+- `synth/cyclegan/`：3 张合成样本。
+- `synth/ddpm/`：3 张合成样本。
+- `synth/pix2pix/`：3 张合成样本。
+- `synth/stylegan2ada/`：3 张合成样本。
 
 运行方式：
 
@@ -51,8 +51,10 @@
 
 ## 表述限制
 
-公共界面和报告使用“AI 生成风险分数”“疑似 AI 生成”“疑似真实”。不得把
-未经校准的 sigmoid 值称为客观概率，也不得仅凭模型输出认定学术不端。
+公共界面和报告使用“AI 生成风险分数”“疑似 AI 生成”“疑似真实”。接口字段
+统一使用 `score_generated`，并返回
+`score_semantics=uncalibrated_sigmoid_risk_score`。不得把未经校准的 sigmoid
+值称为客观概率，也不得仅凭模型输出认定学术不端。
 
 ## 已完成的黄金回归
 

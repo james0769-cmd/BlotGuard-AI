@@ -95,7 +95,10 @@ GET  /api/tasks/{task_id}/report
 
 当前不返回伪造定位区域和多生成器概率分布，因此：
 
-- `mask_image_url` 为 `null`，除非后续模型确认定位输出。
+- 当前模型不提供定位时，`mask_available` 为 `false`、`mask_image_url` 为
+  `null`，并返回 `localization_message`。不得使用原图或空地址冒充 mask。
+- 模型负责人确认五级风险的四个分界点之前，`risk_level` 返回 `null`；后端和
+  前端不得自行使用三档阈值代替五级规则。
 - `suspect_regions` 为空数组。
 - `model_probabilities` 为空数组。
 

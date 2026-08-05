@@ -7,6 +7,14 @@ from enum import Enum
 from typing import Any
 
 
+SCORE_SEMANTICS = "uncalibrated_sigmoid_risk_score"
+
+
+def device_from_runtime(runtime: str) -> str:
+    _, separator, device = runtime.partition(":")
+    return device if separator else runtime
+
+
 class TaskStatus(str, Enum):
     QUEUED = "queued"
     EXTRACTING = "extracting"
@@ -46,7 +54,11 @@ class ModelMetadata:
     is_mock: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        return {**asdict(self), "device": self.device}
+
+    @property
+    def device(self) -> str:
+        return device_from_runtime(self.runtime)
 
 
 @dataclass(frozen=True)
@@ -56,6 +68,21 @@ class DetectionResult:
     threshold: float
     model: ModelMetadata
     logit: float | None = field(default=None, repr=False)
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "task": "detect",
+            "device": self.model.device,
+            "logit": self.logit,
+            "score_generated": self.score_generated,
+            "score_semantics": SCORE_SEMANTICS,
+            "prediction": self.prediction,
+            "threshold": self.threshold,
+            "model_name": self.model.name,
+            "model_version": self.model.version,
+            "weight_sha256": self.model.weight_sha256,
+            "is_mock": self.model.is_mock,
+        }
 
 
 @dataclass(frozen=True)

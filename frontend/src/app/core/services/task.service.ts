@@ -23,10 +23,18 @@ export interface TaskResult {
   task_id: string;
   filename: string;
   original_image_url: string;
-  mask_image_url: string;
-  overall_score: number;        // 0~1 伪造置信度
-  risk_level: 'high' | 'medium' | 'low';
+  mask_available: boolean;
+  mask_image_url: string | null;
+  localization_message: string | null;
+  overall_score: number;        // 兼容字段，等同于 score_generated
+  score_generated: number;
+  score_semantics: 'uncalibrated_sigmoid_risk_score';
+  prediction: 'generated' | 'original';
+  threshold: number;
+  risk_level: null;
   model_version: string;
+  weight_sha256: string;
+  device: string;
   processing_time: number;      // 秒
   suspect_regions: {
     id: number;

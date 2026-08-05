@@ -14,7 +14,9 @@ from backend.blotguard.domain.contracts import (
     ExtractedImage,
     ItemStatus,
     ModelMetadata,
+    SCORE_SEMANTICS,
     TaskStatus,
+    device_from_runtime,
 )
 from backend.blotguard.core.errors import NotFoundError
 from .models import AnalysisItem, AnalysisTask, Artifact, Base
@@ -225,6 +227,14 @@ class AnalysisRepository:
     ) -> dict[str, Any]:
         items = []
         for item in sorted(task.items, key=lambda current: current.source_index):
+            artifacts = [
+                self._serialize_artifact(artifact)
+                for artifact in item.artifacts
+            ]
+            mask_available = any(
+                artifact["kind"] in {"mask", "mask_overlay"}
+                for artifact in artifacts
+            )
             item_data: dict[str, Any] = {
                 "id": item.id,
                 "status": item.status,
@@ -236,12 +246,18 @@ class AnalysisRepository:
                 "sha256": item.image_sha256,
                 "prediction": item.prediction,
                 "score_generated": item.score_generated,
+                "score_semantics": (
+                    SCORE_SEMANTICS if item.score_generated is not None else None
+                ),
                 "threshold": item.threshold,
+                "mask_available": mask_available,
                 "mask_coverage": item.mask_coverage,
-                "artifacts": [
-                    self._serialize_artifact(artifact)
-                    for artifact in item.artifacts
-                ],
+                "localization_message": (
+                    None
+                    if mask_available
+                    else "当前版本不提供区域定位"
+                ),
+                "artifacts": artifacts,
                 "error": (
                     {
                         "code": item.error_code,
@@ -279,6 +295,11 @@ class AnalysisRepository:
                     "weight_sha256": task.model_weight_sha256,
                     "threshold": task.model_threshold,
                     "runtime": task.model_runtime,
+                    "device": (
+                        device_from_runtime(task.model_runtime)
+                        if task.model_runtime is not None
+                        else None
+                    ),
                     "is_mock": task.model_is_mock,
                 }
                 if task.model_name

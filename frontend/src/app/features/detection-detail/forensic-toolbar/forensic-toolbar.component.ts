@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatSliderModule } from '@angular/material/slider';
 import { MatIconModule } from '@angular/material/icon';
@@ -48,17 +48,18 @@ import { FormsModule } from '@angular/forms';
         </mat-slider>
       </div>
 
-      <!-- 掩码透明度 -->
-      <div class="slider-group">
-        <label>
-          <mat-icon>layers</mat-icon>
-          掩码透明度
-          <span class="value">{{ maskOpacityPercent() }}%</span>
-        </label>
-        <mat-slider min="0" max="100" step="1" [discrete]="true">
-          <input matSliderThumb [ngModel]="maskOpacityPercent()" (ngModelChange)="onMaskOpacityChange($event)" />
-        </mat-slider>
-      </div>
+      @if (maskAvailable) {
+        <div class="slider-group">
+          <label>
+            <mat-icon>layers</mat-icon>
+            掩码透明度
+            <span class="value">{{ maskOpacityPercent() }}%</span>
+          </label>
+          <mat-slider min="0" max="100" step="1" [discrete]="true">
+            <input matSliderThumb [ngModel]="maskOpacityPercent()" (ngModelChange)="onMaskOpacityChange($event)" />
+          </mat-slider>
+        </div>
+      }
 
       <!-- 重置按钮 -->
       <button mat-stroked-button class="reset-btn" (click)="resetAll()">
@@ -120,6 +121,7 @@ import { FormsModule } from '@angular/forms';
   `],
 })
 export class ForensicToolbarComponent {
+  @Input() maskAvailable = false;
   @Output() brightnessChange = new EventEmitter<number>();
   @Output() contrastChange = new EventEmitter<number>();
   @Output() maskOpacityChange = new EventEmitter<number>();

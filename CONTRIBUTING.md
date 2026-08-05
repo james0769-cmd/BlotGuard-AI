@@ -191,7 +191,7 @@ shasum -a 256 outputs/smoke_segment_mask.png
 
 PR 中应记录改动前后的：
 
-- `logit`、`probability_generated` 和 `prediction`。
+- `logit`、`score_generated`、`score_semantics` 和 `prediction`。
 - 掩膜尺寸、`mask_mean` 和 SHA-256。
 - 结果是否预期发生变化；如果变化，说明原因和验证依据。
 

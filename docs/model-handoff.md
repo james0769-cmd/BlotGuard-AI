@@ -10,7 +10,7 @@
 
 |能力|稳定入口|模型配置|结果|
 |---|---|---|---|
-|整图检测|`Detector.predict(image_path)`|输入最长边 512，LoRA rank 8，适配编码器第 0～5 层|AI 生成概率和二分类标签|
+|整图检测|`Detector.predict(image_path)`|输入 512 x 512，LoRA rank 8，适配编码器第 0～5 层|AI 生成风险分数和二分类标签|
 |伪造定位|`Localizer.predict(image_path, output_path)`|输入最长边 1024，LoRA rank 8，适配全部编码器层|入口保留，本阶段默认关闭|
 
 最小推理源码位于：
@@ -94,7 +94,7 @@ Localizer.predict(image_path, output_path)
 
 1. 使用 OpenCV 以彩色模式读取图片。
 2. 将 BGR 转为 RGB。
-3. 保持宽高比，将最长边缩放至模型配置尺寸。
+3. 当前 Detector 将图像直接缩放至 512 x 512；是否改为保持宽高比仍待模型负责人确认。
 4. 检测模型使用 512，定位模型使用 1024。
 5. 调用 SAM `preprocess()` 完成标准化和尺寸补齐。
 6. 定位结果经 SAM `postprocess_masks()` 恢复到原图尺寸。
@@ -105,7 +105,7 @@ Localizer.predict(image_path, output_path)
 
 ### 6.1 整图检测
 
-模型产生单个 logit，经 sigmoid 转换为 `probability_generated`。当前固定阈值为 0.5：大于 0.5 为 `generated`，否则为 `original`。
+模型产生单个 logit，经 sigmoid 转换为 `score_generated`。该值没有经过概率校准，固定语义为 `uncalibrated_sigmoid_risk_score`，只能解释为 AI 生成风险分数。当前固定阈值为 0.5：大于 0.5 为 `generated`，否则为 `original`。
 
 ```json
 {
@@ -113,11 +113,17 @@ Localizer.predict(image_path, output_path)
   "image": "tests/fixtures/western_blot_sample.png",
   "device": "cpu",
   "logit": 0.5585181713104248,
-  "probability_generated": 0.6361096501350403,
+  "score_generated": 0.6361096501350403,
+  "score_semantics": "uncalibrated_sigmoid_risk_score",
   "prediction": "generated",
   "threshold": 0.5,
+  "model_name": "western-blot-aigc-detector",
   "model_version": "detector-sam-vit-b-lora-r8-l0-5-img512-4939e568",
-  "weight_sha256": "4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8"
+  "weight_sha256": "4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8",
+  "is_mock": false,
+  "mask_available": false,
+  "mask_image_url": null,
+  "localization_message": "当前版本不提供区域定位"
 }
 ```
 
@@ -125,7 +131,7 @@ Localizer.predict(image_path, output_path)
 
 ### 6.2 伪造定位
 
-本阶段 `localizer_enabled = false`。后端固定返回 `mask_image_url = null`、`suspect_regions = []`。以下内容是后续启用时的模型输出说明。
+本阶段 `localizer_enabled = false`。后端固定返回 `mask_available = false`、`mask_image_url = null`、`suspect_regions = []` 和“当前版本不提供区域定位”。以下内容是后续启用时的模型输出说明。
 
 模型输出单通道 mask logits，经 sigmoid 后使用 0.5 阈值二值化：0 表示未标记区域，255 表示模型标记区域。掩膜以 8-bit 灰度 PNG 保存。
 
@@ -140,7 +146,7 @@ Localizer.predict(image_path, output_path)
 }
 ```
 
-`mask_mean` 表示二值掩膜中被标记像素的占比，不是置信度，也不能直接等同于整图 AI 生成概率。
+`mask_mean` 表示二值掩膜中被标记像素的占比，不是置信度，也不能直接等同于整图 AI 生成风险分数。
 
 ## 7. 最小推理与回归基线
 
@@ -171,7 +177,7 @@ CPU smoke 命令：
 |检查项|基线值|
 |---|---|
 |检测 logit|0.5585181713104248|
-|AI 生成概率|0.6361096501350403|
+|AI 生成风险分数|0.6361096501350403|
 |检测标签|`generated`|
 |掩膜尺寸|256×256|
 |掩膜标记比例|0.2121734619140625|
@@ -210,7 +216,7 @@ python scripts/generate_detector_regression.py --device cpu
 后端首次接入真实模型时，至少应保留以下信息：
 
 - 原始文件名或任务内文件标识。
-- `probability_generated` 和 `prediction`。
+- `score_generated`、`score_semantics` 和 `prediction`。
 - 定位掩膜文件路径或可访问资源标识。
 - `mask_shape` 和 `mask_mean`。
 - 实际使用的模型版本或权重哈希。

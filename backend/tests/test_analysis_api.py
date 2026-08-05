@@ -22,6 +22,14 @@ def test_png_analysis_report_artifact_and_delete(client, png_bytes):
         "total": 1,
     }
     assert task["model"]["is_mock"] is True
+    assert task["model"]["device"] == "cpu"
+    assert task["items"][0]["score_semantics"] == (
+        "uncalibrated_sigmoid_risk_score"
+    )
+    assert task["items"][0]["mask_available"] is False
+    assert task["items"][0]["localization_message"] == (
+        "当前版本不提供区域定位"
+    )
     assert task["items"][0]["artifacts"][0]["kind"] == "extracted_image"
 
     task_id = task["task_id"]
@@ -132,14 +140,24 @@ def test_frontend_compat_login_upload_result_report(client, png_bytes):
     assert payload["task_id"] == task_id
     assert payload["filename"] == "sample.png"
     assert payload["original_image_url"].startswith("/api/v1/artifacts/")
+    assert payload["mask_available"] is False
     assert payload["mask_image_url"] is None
+    assert payload["localization_message"] == "当前版本不提供区域定位"
     assert payload["overall_score"] is not None
-    assert payload["overall_risk"] in {"low", "medium", "high"}
-    assert payload["risk_level"] == payload["overall_risk"]
+    assert payload["score_generated"] == payload["overall_score"]
+    assert payload["score_semantics"] == (
+        "uncalibrated_sigmoid_risk_score"
+    )
+    assert payload["prediction"] in {"generated", "original"}
+    assert payload["threshold"] == 0.5
+    assert payload["overall_risk"] is None
+    assert payload["risk_level"] is None
     assert payload["suspect_regions"] == []
     assert payload["model_probabilities"] == []
     assert payload["model_version"] == "mock-v1"
-    assert "建议" in payload["conclusion"]
+    assert payload["weight_sha256"] == "not-a-real-model"
+    assert payload["device"] == "cpu"
+    assert "五级风险阈值尚未确认" in payload["conclusion"]
 
     report = client.get(f"/api/tasks/{task_id}/report")
     assert report.status_code == 200

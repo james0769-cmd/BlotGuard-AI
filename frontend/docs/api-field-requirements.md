@@ -121,8 +121,8 @@
   "mask_image_url": "string (SAM/LoRA 掩码叠加图 URL)",
 
   // --- 综合评分 ---
-  "overall_score": "number (0~1, 综合伪造置信度)",
-  "overall_risk": "high | medium | low",
+  "overall_score": "number (0~1，兼容字段，等同于未校准的 score_generated)",
+  "overall_risk": "null（五级风险阈值确认后再替换为统一枚举）",
 
   // --- 可疑区域列表 ---
   "suspect_regions": [
