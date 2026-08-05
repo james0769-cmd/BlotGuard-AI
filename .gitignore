@@ -11,3 +11,5 @@ var/
 outputs/
 models/weights/
 *.local.yaml
+
+.vscode/
