@@ -21,15 +21,15 @@ inference:
     enabled: true
     code_dir: models/source
     sam_checkpoint: models/weights/sam_vit_b_01ec64.pth
-    lora_weight: models/weights/detector/rank8-img_size512-vit_b-best_f1.pth
+    lora_weight: models/weights/detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth
     model_type: vit_b
     image_size: 512
     rank: 8
-    lora_layers: [0, 1, 2, 3, 4, 5]
+    lora_layers: null
     threshold: 0.5
     preprocess_mode: stretch
-    version: detector-sam-vit-b-lora-r8-l0-5-img512-4939e568
-    weight_sha256: 4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8
+    version: detector-sam-vit-b-lora-r8-all-img512-51265aec
+    weight_sha256: 51265aecd96858feeead19cc47f9bd3dc0af3fa7d793582482a9287a153c3e25
 
   localizer:
     enabled: false

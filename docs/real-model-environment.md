@@ -23,7 +23,7 @@
 
 ```text
 models/weights/sam_vit_b_01ec64.pth
-models/weights/detector/rank8-img_size512-vit_b-best_f1.pth
+models/weights/detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth
 models/weights/localizer/rank8-img_size1024-vit_b-best_f1.pth
 ```
 

@@ -11,6 +11,15 @@ def resolve_device(torch, requested: str):
     return torch.device(requested)
 
 
+def resized_dimensions(old_h: int, old_w: int, image_size: int, mode: str):
+    if mode == "stretch":
+        return image_size, image_size
+    if mode == "longest_side":
+        scale = image_size / max(old_h, old_w)
+        return int(old_h * scale + 0.5), int(old_w * scale + 0.5)
+    raise ValueError(f"Unsupported preprocess mode: {mode}")
+
+
 def load_image(cv2, torch, sam, image_path, device, mode: str):
     image = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
     if image is None:
@@ -18,21 +27,11 @@ def load_image(cv2, torch, sam, image_path, device, mode: str):
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     old_h, old_w = image.shape[:2]
     image_size = int(sam.image_encoder.img_size)
+    new_h, new_w = resized_dimensions(old_h, old_w, image_size, mode)
 
-    if mode == "stretch":
-        image = cv2.resize(
-            image, (image_size, image_size), interpolation=cv2.INTER_AREA
-        )
-        new_h, new_w = image_size, image_size
-    elif mode == "longest_side":
-        scale = image_size / max(old_h, old_w)
-        new_w = int(old_w * scale + 0.5)
-        new_h = int(old_h * scale + 0.5)
-        image = cv2.resize(
-            image, (new_w, new_h), interpolation=cv2.INTER_AREA
-        )
-    else:
-        raise ValueError(f"Unsupported preprocess mode: {mode}")
+    image = cv2.resize(
+        image, (new_w, new_h), interpolation=cv2.INTER_AREA
+    )
 
     tensor = torch.as_tensor(
         image, dtype=torch.float32, device=device

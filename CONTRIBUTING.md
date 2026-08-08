@@ -53,7 +53,7 @@ npm ci
 ```text
 models/weights/
 ├── sam_vit_b_01ec64.pth
-├── detector/rank8-img_size512-vit_b-best_f1.pth
+├── detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth
 └── localizer/rank8-img_size1024-vit_b-best_f1.pth
 ```
 

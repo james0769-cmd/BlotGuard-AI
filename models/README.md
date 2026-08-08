@@ -10,7 +10,7 @@
 models/weights/
 ├── sam_vit_b_01ec64.pth
 ├── detector/
-│   └── rank8-img_size512-vit_b-best_f1.pth
+│   └── rank8-full12-img_size512-vit_b-blots20-best_f1.pth
 └── localizer/
     └── rank8-img_size1024-vit_b-best_f1.pth
 ```
@@ -21,7 +21,7 @@ macOS/Linux 示例：
 mkdir -p models/weights/detector models/weights/localizer
 cp /path/to/sam_vit_b_01ec64.pth models/weights/
 cp /path/to/detector-best-f1.pth \
-  models/weights/detector/rank8-img_size512-vit_b-best_f1.pth
+  models/weights/detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth
 cp /path/to/localizer-best-f1.pth \
   models/weights/localizer/rank8-img_size1024-vit_b-best_f1.pth
 ```
@@ -31,7 +31,7 @@ Windows PowerShell 示例：
 ```powershell
 New-Item -ItemType Directory -Force models\weights\detector, models\weights\localizer
 Copy-Item C:\path\sam_vit_b_01ec64.pth models\weights\
-Copy-Item C:\path\detector-best-f1.pth models\weights\detector\rank8-img_size512-vit_b-best_f1.pth
+Copy-Item C:\path\detector-best-f1.pth models\weights\detector\rank8-full12-img_size512-vit_b-blots20-best_f1.pth
 Copy-Item C:\path\localizer-best-f1.pth models\weights\localizer\rank8-img_size1024-vit_b-best_f1.pth
 ```
 
