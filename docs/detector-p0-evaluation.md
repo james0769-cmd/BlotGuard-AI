@@ -64,6 +64,10 @@ CycleGAN、Pix2Pix、DDPM 各 100 张。每个样本均记录 SHA-256。由于�
    FPR、FNR 及各生成器指标。
 4. 新模型必须同时满足 DDPM 召回提升和真实图误报不恶化，才能替换当前冻结候选。
 
+2026-08-10 已完成新 calibration：在 FPR 5% 约束下，DDPM recall 54.8%、Pix2Pix
+recall 87.2%，未通过 80%/90% 的预设门槛。test 因此继续封存，详见
+`docs/detector-calibration.md`。
+
 复现工具：
 
 ```bash

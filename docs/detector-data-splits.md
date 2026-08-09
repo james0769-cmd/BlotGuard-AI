@@ -47,6 +47,8 @@ sample_data/western_blots_dataset/splits/
   detector_reserve_manifest.csv
   detector_excluded_manifest.csv
   detector_split_metadata.json
+  detector_calibration_predictions.csv
+  detector_calibration_result.json
 ```
 
 ## 使用限制
@@ -56,6 +58,9 @@ sample_data/western_blots_dataset/splits/
 3. Test 只做一次最终评估，不得根据结果继续选择 checkpoint 或阈值。
 4. Reserve 可供未来模型开发；当前 test 不得加入后续训练。
 5. 当前 25 张黄金样本继续只做代码回归，500 张审计集继续只做候选比较。
+
+Calibration 已完成，结果见 `docs/detector-calibration.md`。当前模型未通过 DDPM 和
+Pix2Pix 门槛，因此 test 继续封存且尚未运行。
 
 ## 复现与校验
 

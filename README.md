@@ -176,4 +176,5 @@ python scripts/smoke_api.py --mode mock
 - `docs/api-contract.md`：接口、状态和错误约定。
 - `docs/model-contract.md`：当前已知模型参数和待确认事项。
 - `docs/detector-data-splits.md`：Detector 原始划分与新冻结测试集。
+- `docs/detector-calibration.md`：Calibration、阈值与五级风险诊断结果。
 - `docs/openapi.yaml`：前后端共同使用的机器可读契约。
