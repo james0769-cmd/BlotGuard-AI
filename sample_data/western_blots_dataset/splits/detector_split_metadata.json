@@ -1,0 +1,67 @@
+{
+  "schema_version": 1,
+  "dataset_root_layout": "western_blots_dataset/{real,synth/<generator>}",
+  "dataset_file_count": 38200,
+  "seed": "blotguard-detector-split-v1",
+  "family_rule": "shared trailing numeric image id across all five groups",
+  "phash_algorithm": "32x32 grayscale DCT, top-left 8x8 median hash",
+  "phash_max_hamming_distance": 4,
+  "calibration_per_group": 500,
+  "test_per_group": 1000,
+  "split_counts": {
+    "calibration": {
+      "real": 500,
+      "cyclegan": 500,
+      "ddpm": 500,
+      "pix2pix": 500,
+      "stylegan2ada": 500
+    },
+    "test": {
+      "real": 1000,
+      "cyclegan": 1000,
+      "ddpm": 1000,
+      "pix2pix": 1000,
+      "stylegan2ada": 1000
+    },
+    "reserve": {
+      "real": 6560,
+      "cyclegan": 387,
+      "ddpm": 387,
+      "pix2pix": 387,
+      "stylegan2ada": 387
+    }
+  },
+  "excluded_family_reason_counts": {
+    "exact_duplicate_with_frozen_split": 286,
+    "exact_duplicate_within_calibration": 7,
+    "historical_train_or_val": 633,
+    "near_calibration": 900,
+    "near_frozen_calibration_or_test": 3094,
+    "near_historical_train_or_val": 1302,
+    "previously_evaluated:p0_audit_manifest_500.csv": 1094,
+    "previously_evaluated:sample_manifest.csv": 41
+  },
+  "source_split_manifests": {
+    "blots_20_train.txt": "8bd4a363e2967a5da9f203f8e6cfd250ed508d296d3bd7932e705fb5f8a4b1d0",
+    "face_blots_20_train.txt": "e9fae708b8d2ec84ffea9b94a2bffba0cd851c98dbc698ca51e67b8e718b0910",
+    "face_blots_20_train_nondomain.txt": "892369d5daa5150308fbc18349cc29a67f19f0a821c2a870df22dc137a3675a2",
+    "face_blots_20_val.txt": "aef847a369085a542eb733f593d52bade87213499dcb43389b1870c5bb56ba2e",
+    "face_blots_20_val_nondomain.txt": "ab0057b1e9e7c8c4c3b09e554c82f2d066943f0652ef54c7802c4e0a6b5c10da"
+  },
+  "previously_evaluated_manifests": {
+    "/Users/jamelee/BlotGuard-AI/sample_data/western_blots_dataset/sample_manifest.csv": "e22af1f4c704aa5ca25cc57ca5856622810dcd171be64f94d62f15dbeb5047b4",
+    "/Users/jamelee/BlotGuard-AI/var/p0_audit_manifest_500.csv": "6d36914917ba04295fb31e47fe289f2c6294f8c007862cb008c345a827c6d904"
+  },
+  "manifest_sha256": {
+    "calibration": "74f491cbea2057e298842cd39e104f57928f4639c5a59f3c30c1dc5ad21f0d50",
+    "test": "4102d8fb593c1ac577acd3a96e240611da7bc4aae890dead98c7499c1ddb4ea3",
+    "reserve": "a1d90117948eb47ae3e6fe438bfef390b4986284dcb80caf675a1e1b639ed377",
+    "excluded": "f7f651232e1b8c0d3867549d2d1177f769433a7107b4950260790fd1730c2b2d"
+  },
+  "usage": {
+    "calibration": "threshold and score calibration only",
+    "test": "one-time final evaluation after model and thresholds are frozen",
+    "reserve": "future development; never train the current frozen model on test",
+    "excluded": "historical, previously evaluated, or perceptually conflicting samples"
+  }
+}

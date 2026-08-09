@@ -54,9 +54,14 @@ CycleGAN、Pix2Pix、DDPM 各 100 张。每个样本均记录 SHA-256。由于�
 
 ## 剩余 P0
 
-1. 找回或重建可追溯的 train/validation/test 清单，保证独立测试集无数据泄漏。
-2. 在训练集补充 DDPM，并在独立验证集上重新训练和选择 checkpoint。
-3. 在独立测试集报告 accuracy、precision、recall、F1、FPR、FNR 及各生成器指标。
+原始 train/val 已找回，并于 2026-08-09 建立新的 calibration/test/reserve 冻结
+清单，详见 `docs/detector-data-splits.md`。新 test 从冻结后不再参与开发，但无法追溯
+证明其中图片从未被历史脚本查看。
+
+1. 在训练集补充 DDPM，并在独立 validation 上重新训练和选择 checkpoint。
+2. 使用 calibration 集确认二分类阈值、分数校准和五级风险分界点。
+3. 所有配置冻结后，在新 test 上一次性报告 accuracy、precision、recall、F1、
+   FPR、FNR 及各生成器指标。
 4. 新模型必须同时满足 DDPM 召回提升和真实图误报不恶化，才能替换当前冻结候选。
 
 复现工具：

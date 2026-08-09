@@ -45,7 +45,7 @@
 
 ## 上线前必须由模型负责人签字确认
 
-1. 提供可追溯且与训练集隔离的 train/validation/test 划分。
+1. 审核 2026-08-09 新冻结的 calibration/test 清单及其历史可见性限制。
 2. 使用更多 DDPM 样本重新训练；当前冻结候选在 500 张审计集上仅识别
    `37/100` DDPM。
 3. 直接拉伸到 512 x 512 是否为正式预处理。
@@ -82,6 +82,9 @@ checkpoint 均未在固定样本上超过 DDPM `1/3`，不能通过简单换 che
 P1 评估可靠性修复记录在 `docs/detector-p1-evaluation.md`。候选评估现已输出完整
 二分类指标，阈值扫描必须声明数据角色；非独立审计集的结果不会被标记为可用于
 修改正式阈值。当前 `0.5` 阈值保持不变。
+
+原始 train/val 和新冻结 calibration/test/reserve 的来源、数量、哈希与使用限制
+记录在 `docs/detector-data-splits.md`。新 test 尚未运行。
 
 本地连续编号的 25 张联调样本也已全部完成真实推理，结果保存在被忽略的
 `var/real_smoke_25.json`。
