@@ -1,25 +1,40 @@
 import { Component, signal } from '@angular/core';
-import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { HttpEventType } from '@angular/common/http';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatTableModule } from '@angular/material/table';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBarModule, MatSnackBar } from '@angular/material/snack-bar';
+import { MatDialogModule, MatDialog } from '@angular/material/dialog';
 import { UploadService } from '../../core/services/upload.service';
-import { MockDataService, UploadedFile } from '../../core/services/mock-data.service';
+import { UploadSuccessDialogComponent } from '../../upload-success-dialog/upload-success-dialog.component';
+
+export interface UploadRecord {
+  taskId: string;
+  fileName: string;
+  fileSize: number;
+  uploadTime: string;
+}
+
+const HISTORY_KEY = 'blotguard_upload_history';
+
+function loadHistory(): UploadRecord[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(records: UploadRecord[]): void {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(records));
+}
 
 /**
  * WorkspaceComponent — 工作台
  *
- * 功能：
- * 1. 拖拽/点击上传文件
- * 2. 实时进度条
- * 3. 已上传文件列表（从 Mock 获取）
- * 4. 点击文件 → 跳转到鉴伪详情页
+ * 功能：拖拽/点击上传文件，实时进度条
  */
 @Component({
   selector: 'app-workspace',
@@ -29,36 +44,26 @@ import { MockDataService, UploadedFile } from '../../core/services/mock-data.ser
     MatButtonModule,
     MatIconModule,
     MatProgressBarModule,
-    MatTableModule,
-    MatChipsModule,
-    MatTooltipModule,
     MatSnackBarModule,
+    MatDialogModule,
   ],
   templateUrl: './workspace.component.html',
   styleUrl: './workspace.component.scss',
 })
 export class WorkspaceComponent {
   uploadProgress = signal(0);
-  uploadStatus = signal<'idle' | 'uploading' | 'success' | 'error'>('idle');
+  uploadStatus = signal<'idle' | 'uploading' | 'processing' | 'success' | 'error'>('idle');
+  uploadPhaseText = signal('');
   isDragOver = signal(false);
-  uploadedFiles = signal<UploadedFile[]>([]);
 
-  displayedColumns = ['fileName', 'fileSize', 'status', 'uploadTime', 'actions'];
-
-  // 允许的文件格式
-  private readonly ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.doc', '.jpg', '.jpeg', '.png', '.tiff', '.tif'];
-  // 最大文件大小：50MB
+  private readonly ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.jpg', '.jpeg', '.png', '.tiff', '.tif'];
   private readonly MAX_FILE_SIZE = 50 * 1024 * 1024;
 
   constructor(
     private uploadService: UploadService,
-    private mockDataService: MockDataService,
-    private router: Router,
     private snackBar: MatSnackBar,
-  ) {
-    // 加载模拟的已上传文件列表
-    this.uploadedFiles.set(this.mockDataService.getUploadedFiles());
-  }
+    private dialog: MatDialog,
+  ) {}
 
   onDrop(event: DragEvent): void {
     event.preventDefault();
@@ -92,18 +97,11 @@ export class WorkspaceComponent {
       if (this.validateFile(file)) {
         this.startUpload(file);
       }
-      input.value = ''; // 清空以允许重复选择同一文件
+      input.value = '';
     }
   }
 
-  /** 查看检测详情 */
-  viewDetail(file: UploadedFile): void {
-    this.router.navigate(['/detection', file.id]);
-  }
-
-  /** 文件校验：格式 + 大小 */
   private validateFile(file: File): boolean {
-    // 校验文件格式
     const fileName = file.name.toLowerCase();
     const hasValidExt = this.ALLOWED_EXTENSIONS.some(ext => fileName.endsWith(ext));
     if (!hasValidExt) {
@@ -115,7 +113,6 @@ export class WorkspaceComponent {
       return false;
     }
 
-    // 校验文件大小
     if (file.size > this.MAX_FILE_SIZE) {
       this.snackBar.open(
         `文件过大（${this.formatFileSize(file.size)}），最大允许 50MB`,
@@ -131,77 +128,60 @@ export class WorkspaceComponent {
   private startUpload(file: File): void {
     this.uploadProgress.set(0);
     this.uploadStatus.set('uploading');
+    this.uploadPhaseText.set('正在上传...');
 
     this.uploadService.uploadFile(file).subscribe({
       next: (event) => {
         if (event.type === HttpEventType.UploadProgress) {
-          const percent = event.total
-            ? Math.round((100 * event.loaded) / event.total)
-            : 0;
-          this.uploadProgress.set(percent);
+          // 进度最多显示到 90%，100% 保留给服务器确认
+          const raw = event.total
+            ? Math.round((90 * event.loaded) / event.total)
+            : this.uploadProgress();
+          const capped = Math.min(raw, 90);
+          this.uploadProgress.set(Math.max(this.uploadProgress(), capped));
         } else if (event.type === HttpEventType.Response && event.body) {
-          this.handleUploadSuccess(file, event.body.task_id);
+          this.uploadStatus.set('processing');
+          this.uploadPhaseText.set('服务器处理中...');
+          this.uploadProgress.set(95);
+          // 短暂延迟后确认完成，让用户看到 "处理中" 过渡
+          setTimeout(() => {
+            this.handleUploadSuccess(file, event.body!.task_id);
+          }, 300);
         }
       },
-      error: () => {
-        this.simulateUploadProgress(file);
+      error: (err) => {
+        this.uploadStatus.set('error');
+        this.uploadPhaseText.set('');
+        const message = err?.error?.message || err?.message || '上传失败，请检查网络连接';
+        this.snackBar.open(message, '关闭', { duration: 6000 });
       },
     });
   }
 
-  /** 模拟上传进度动画（后端未启动时） */
-  private simulateUploadProgress(file: File): void {
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 15 + 5;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        this.uploadProgress.set(100);
-        this.handleUploadSuccess(file);
-      } else {
-        this.uploadProgress.set(Math.round(progress));
-      }
-    }, 200);
-  }
-
-  /** 上传完成后的处理：更新列表 + 延迟跳转到详情页 */
-  private handleUploadSuccess(file: File, taskId?: string): void {
-    this.uploadStatus.set('success');
+  private handleUploadSuccess(file: File, taskId: string): void {
     this.uploadProgress.set(100);
-    this.mockDataService.addUploadedFile(file.name, file.size);
-    this.uploadedFiles.set(this.mockDataService.getUploadedFiles());
+    this.uploadStatus.set('success');
+    this.uploadPhaseText.set('');
 
-    setTimeout(() => {
-      // 优先使用后端返回的真实 task_id，否则回退 mock
-      const id = taskId ?? this.uploadedFiles()[0]?.id;
-      if (id) {
-        this.router.navigate(['/detection', id]);
-      }
-    }, 1500);
+    // 记录到上传历史
+    const history = loadHistory();
+    history.unshift({
+      taskId,
+      fileName: file.name,
+      fileSize: file.size,
+      uploadTime: new Date().toLocaleString('zh-CN'),
+    });
+    saveHistory(history);
+
+    this.dialog.open(UploadSuccessDialogComponent, {
+      data: { fileName: file.name, taskId },
+      disableClose: true,
+    });
   }
 
   formatFileSize(bytes: number): string {
     if (bytes < 1024) return bytes + ' B';
     if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
     return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-  }
-
-  getStatusColor(status: string): string {
-    switch (status) {
-      case 'completed': return '#4caf50';
-      case 'processing': return '#ff9800';
-      case 'pending': return '#9e9e9e';
-      default: return '#9e9e9e';
-    }
-  }
-
-  getStatusLabel(status: string): string {
-    switch (status) {
-      case 'completed': return '已完成';
-      case 'processing': return '分析中';
-      case 'pending': return '待处理';
-      default: return '未知';
-    }
   }
 }

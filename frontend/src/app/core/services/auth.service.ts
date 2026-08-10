@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { Observable, tap, of, catchError } from 'rxjs';
+import { Observable, tap } from 'rxjs';
 
 export interface LoginRequest {
   username: string;
@@ -35,19 +35,10 @@ export class AuthService {
 
   constructor(private http: HttpClient, private router: Router) {}
 
-  /** 登录：向后端发请求，失败时降级为 mock 登录 */
+  /** 登录：向后端发请求 */
   login(credentials: LoginRequest): Observable<LoginResponse> {
     return this.http.post<LoginResponse>('/api/auth/login', credentials).pipe(
-      tap((res) => this.storeSession(res)),
-      // 后端未启动时，降级为 mock 登录（任意用户名/密码即可）
-      catchError(() => {
-        const mockResponse: LoginResponse = {
-          access_token: 'mock_jwt_token_' + Date.now(),
-          user: { id: 1, username: credentials.username || 'researcher', role: 'admin' },
-        };
-        this.storeSession(mockResponse);
-        return of(mockResponse);
-      })
+      tap((res) => this.storeSession(res))
     );
   }
 

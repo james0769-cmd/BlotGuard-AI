@@ -31,17 +31,21 @@
   <mat-sidenav #sidenav mode="side" [opened]="sidenavOpen()">
     <div class="nav-section-label">导航</div>
     <mat-nav-list>
-      <a mat-list-item routerLink="/workspace" routerLinkActive="active">
+      <a mat-list-item routerLink="/workspace" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
         <mat-icon matListItemIcon>cloud_upload</mat-icon>
         <span matListItemTitle>工作台</span>
       </a>
-      <a mat-list-item routerLink="/detection" routerLinkActive="active">
+      <a mat-list-item routerLink="/detection" routerLinkActive="active" [routerLinkActiveOptions]="{exact: false}">
         <mat-icon matListItemIcon>biotech</mat-icon>
         <span matListItemTitle>鉴伪分析</span>
       </a>
-      <a mat-list-item routerLink="/gallery" routerLinkActive="active">
+      <a mat-list-item routerLink="/gallery" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
         <mat-icon matListItemIcon>collections</mat-icon>
         <span matListItemTitle>样本图库</span>
+      </a>
+      <a mat-list-item routerLink="/reports" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
+        <mat-icon matListItemIcon>picture_as_pdf</mat-icon>
+        <span matListItemTitle>报告中心</span>
       </a>
     </mat-nav-list>
   </mat-sidenav>
