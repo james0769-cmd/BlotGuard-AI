@@ -16,6 +16,11 @@ localize=false
 返回 `202` 和完整任务资源。默认异步执行，前端轮询任务地址。支持
 JPG、JPEG、JFIF、PNG、TIFF、PDF、DOCX。
 
+PDF 和 DOCX 中的可分析图片全部进入任务的 `items` 数组。每项包含来源页码或
+图片序号、检测结果、风险分数、实验性五级风险、mask 可用状态和独立错误信息。
+任务 `summary` 是文件级汇总；文件级风险分数采用所有成功图片中的最高风险分数，
+对应的预测和五级风险作为文件级结论，避免遗漏文档中的高风险图片。
+
 ## 查询和删除
 
 ```text
@@ -106,5 +111,12 @@ GET  /api/tasks/{task_id}/report
   辅助人工复核。
 - `suspect_regions` 为空数组。
 - `model_probabilities` 为空数组。
+- 多图片结果位于 `items`，`image_count` 表示图片总数；保留的
+  `original_image_url` 和 `mask_image_url` 仅是第一张图片的兼容字段。
+- `result_summary` 返回与规范任务一致的文件级汇总；`report_available` 和
+  `report_url` 表示报告是否可以下载。
+- `backend_status` 保留规范任务阶段，前端可据此区分提取、推理和报告生成过程。
 
 报告由后端生成，任务成功后可直接下载；不需要额外生成接口。
+失败任务请求报告时返回 `TASK_FAILED` 和原始任务错误，不会用
+`REPORT_NOT_READY` 隐藏真实失败原因。
