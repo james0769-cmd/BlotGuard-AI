@@ -55,3 +55,29 @@ def test_detector_golden_set_is_complete_and_stable():
     for sample in manifest:
         path = PROJECT_ROOT / sample["sample_path"]
         assert hashlib.sha256(path.read_bytes()).hexdigest() == sample["sample_sha256"]
+
+    expected_model_version = "detector-sam-vit-b-lora-r8-all-img512-51265aec"
+    expected_weight_sha256 = (
+        "51265aecd96858feeead19cc47f9bd3dc0af3fa7d793582482a9287a153c3e25"
+    )
+    assert all(
+        row["model_version"] == expected_model_version
+        and row["weight_sha256"] == expected_weight_sha256
+        for row in json_results
+    )
+    assert all(
+        row["model_version"] == expected_model_version
+        and row["weight_sha256"] == expected_weight_sha256
+        for row in csv_results
+    )
+
+    correct = [
+        row
+        for row in json_results
+        if row["prediction"] == row["expected_source_class"]
+    ]
+    assert len(correct) == 23
+    assert sum(
+        row["generator"] == "ddpm" and row["prediction"] == "generated"
+        for row in json_results
+    ) == 1

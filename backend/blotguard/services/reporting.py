@@ -23,6 +23,7 @@ from reportlab.platypus import (
 )
 
 from backend.blotguard.core.config import RuntimeConfig
+from backend.blotguard.domain.risk import RISK_LEVEL_LABELS, risk_level_for_score
 from .storage import LocalStorage
 
 
@@ -82,6 +83,11 @@ class ReportService:
             Paragraph(
                 "说明：本报告输出为模型风险判断，仅供科研诚信审查和人工复核参考，"
                 "不能单独作为认定学术不端的依据。",
+                body,
+            ),
+            Spacer(1, 3 * mm),
+            Paragraph(
+                "五级风险为实验性结果；当前模型对 DDPM/Pix2Pix 的区分能力仍待改进。",
                 body,
             ),
         ]
@@ -150,6 +156,7 @@ class ReportService:
 
     def _item_table(self, item: dict, style: ParagraphStyle) -> Table:
         score = item.get("score_generated")
+        risk_level = risk_level_for_score(score)
         rows = [
             ["来源", item["source_name"]],
             ["页码", str(item.get("page_number") or "-")],
@@ -168,6 +175,10 @@ class ReportService:
             [
                 "AI 生成风险分数",
                 f"{score:.4f}" if score is not None else "-",
+            ],
+            [
+                "五级风险（实验性）",
+                RISK_LEVEL_LABELS.get(risk_level, "-"),
             ],
         ]
         return self._table(rows, style, [42 * mm, 117 * mm])

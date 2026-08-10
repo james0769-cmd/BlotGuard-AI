@@ -1,25 +1,9 @@
-"""Serializable inference result contracts."""
+"""Serializable localization result contract."""
 
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from typing import Any
-
-
-@dataclass(frozen=True)
-class DetectionResult:
-    task: str = field(init=False, default="detect")
-    image: str
-    device: str
-    logit: float
-    probability_generated: float
-    prediction: str
-    threshold: float
-    model_version: str
-    weight_sha256: str
-
-    def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
 
 
 @dataclass(frozen=True)

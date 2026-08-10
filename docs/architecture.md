@@ -59,7 +59,7 @@ Detector.predict(image_path) -> DetectionResult
 Localizer.predict(image_path, output_path) -> LocalizationResult
 ```
 
-检测模型使用最长边 512、rank 8 LoRA 和 0–5 层适配器；定位模型使用最长边 1024、rank 8 LoRA 和全层适配器。最小推理源码跟踪在 `models/source/`，权重版本记录在 `models/manifest.yaml`，实际路径由 `configs/default.yaml` 管理。本阶段 Detector 启用，Localizer 关闭。
+检测模型将输入直接缩放至 512×512，使用 rank 8 LoRA 和全部 12 层适配器；定位模型使用最长边 1024、rank 8 LoRA 和全层适配器。最小推理源码跟踪在 `models/source/`，权重版本记录在 `models/manifest.yaml`，实际路径由 `configs/default.yaml` 管理。本阶段 Detector 启用，Localizer 关闭。
 
 `scripts/smoke_detect.py` 与 `scripts/smoke_segment.py` 是兼容入口，保留原有 CLI 参数和 JSON 输出格式。
 

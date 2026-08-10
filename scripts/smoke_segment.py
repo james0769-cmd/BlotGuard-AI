@@ -10,7 +10,6 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from backend.blotguard.core.config import load_runtime_config
-from backend.blotguard.inference.common import parse_layers
 from backend.blotguard.inference.localizer import Localizer
 
 
@@ -20,25 +19,14 @@ FIXTURE_IMAGE = ROOT / "tests" / "fixtures" / "western_blot_sample.png"
 
 
 def default_image():
-    patterns = [
-        DEFAULT_CONFIG.data_root
-        / "western_blots"
-        / "western_blots_dataset"
-        / "synth"
-        / "stylegan2ada"
-        / "*.png",
-        DEFAULT_CONFIG.data_root
-        / "western_blots"
-        / "western_blots_dataset"
-        / "real"
-        / "*.png",
-        FIXTURE_IMAGE,
-    ]
-    for pattern in patterns:
-        for path in pattern.parent.glob(pattern.name):
-            if path.is_file():
-                return path
-    return None
+    return FIXTURE_IMAGE if FIXTURE_IMAGE.is_file() else None
+
+
+def parse_layers(value: str) -> tuple[int, ...] | None:
+    normalized = value.strip().lower()
+    if normalized == "all":
+        return None
+    return tuple(int(layer.strip()) for layer in value.split(","))
 
 
 def main():

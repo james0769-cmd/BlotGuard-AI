@@ -95,7 +95,15 @@ GET  /api/tasks/{task_id}/report
 
 当前不返回伪造定位区域和多生成器概率分布，因此：
 
-- `mask_image_url` 为 `null`，除非后续模型确认定位输出。
+- 当前模型不提供定位时，`mask_available` 为 `false`、`mask_image_url` 为
+  `null`，并返回 `localization_message`。不得使用原图或空地址冒充 mask。
+- `score_generated` 是唯一规范风险分数字段，`overall_score` 仅为兼容别名。
+- `risk_level` 是唯一规范五级风险字段，枚举为 `very_low`、`low`、`medium`、
+  `high`、`very_high`；`overall_risk` 仅为兼容别名。
+- 五级风险当前作为实验性功能启用，响应同时返回
+  `risk_level_is_experimental=true`、`risk_level_semantics` 和
+  `risk_level_version`。当前模型对 DDPM/Pix2Pix 的区分能力仍待改进，结果只用于
+  辅助人工复核。
 - `suspect_regions` 为空数组。
 - `model_probabilities` 为空数组。
 

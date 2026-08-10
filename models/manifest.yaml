@@ -9,9 +9,9 @@ artifacts:
     used_by: [detect, segment]
 
   detector_lora:
-    path: detector/rank8-img_size512-vit_b-best_f1.pth
-    sha256: 4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8
-    size_bytes: 2153517
+    path: detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth
+    sha256: 51265aecd96858feeead19cc47f9bd3dc0af3fa7d793582482a9287a153c3e25
+    size_bytes: 2751077
     used_by: [detect]
 
   localizer_lora:
