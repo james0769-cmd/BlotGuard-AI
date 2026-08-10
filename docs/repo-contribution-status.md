@@ -6,7 +6,8 @@
 
 - 后端保留规范接口 `/api/v1/...`，并提供前端当前使用的 `/api/...` 兼容入口。
 - `/api/tasks/upload`、任务轮询、结果查询、PDF 下载和 mock 登录均已实现。
-- 结果接口同时提供规范字段 `file_name`、`overall_risk`，以及当前前端 service 使用的 `filename`、`risk_level` 别名。
+- 结果接口统一使用 `score_generated` 和 `risk_level`；`overall_score` 和
+  `overall_risk` 仅作为兼容别名，且别名值必须与规范字段一致。
 - Nginx Docker 集成配置放在 `deploy/nginx.compose.conf`。
 - Nginx 本机后端 5001 联调配置放在 `deploy/nginx.local-backend.conf` 和
   `deploy/compose.nginx-local.yaml`。
@@ -35,5 +36,4 @@
 ## 当前还需要确认
 
 - GitHub 账号是否已登录，并确认由谁创建 PR。
-- 是否把前端字段别名保留到 v0.1 结束，还是由前端统一改为 `file_name`、
-  `overall_risk` 后删除别名。
+- 是否在前端 v0.1 结束后删除 `overall_score`、`overall_risk` 兼容别名。

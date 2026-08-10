@@ -15,6 +15,12 @@ from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 
 from backend.blotguard.core.errors import AppError
 from backend.blotguard.domain.contracts import SCORE_SEMANTICS, TaskStatus
+from backend.blotguard.domain.risk import (
+    RISK_LEVEL_LABELS,
+    RISK_LEVEL_SEMANTICS,
+    RISK_LEVEL_VERSION,
+    risk_level_for_score,
+)
 
 
 frontend_compat = Blueprint("frontend_compat", __name__)
@@ -99,12 +105,18 @@ def _artifact_url(
     return None if artifact is None else artifact["url"]
 
 
-def _conclusion(task: dict[str, Any], score: float | None) -> str:
+def _conclusion(
+    task: dict[str, Any], score: float | None, risk_level: str | None
+) -> str:
     if _frontend_status(task) == "failed":
         error = task.get("error") or {}
         return error.get("message") or "检测失败，请检查文件后重新上传。"
     if score is not None:
-        return "模型已返回风险分数；五级风险阈值尚未确认，请结合原始实验数据人工复核。"
+        return (
+            f"实验性五级风险为 {RISK_LEVEL_LABELS[risk_level]}；当前模型对 "
+            "DDPM/Pix2Pix 的区分能力"
+            "仍待改进，请结合原始实验数据人工复核。"
+        )
     return "任务仍在处理中，请稍后刷新检测结果。"
 
 
@@ -128,6 +140,7 @@ def _summary(task: dict[str, Any]) -> dict[str, Any]:
 def _result(task: dict[str, Any]) -> dict[str, Any]:
     item = _first_item(task)
     score = None if item is None else item.get("score_generated")
+    risk_level = risk_level_for_score(score)
     model = task.get("model") or {}
     summary = _summary(task)
     mask_url = _artifact_url(item, "mask", "mask_overlay")
@@ -148,15 +161,18 @@ def _result(task: dict[str, Any]) -> dict[str, Any]:
         "score_semantics": SCORE_SEMANTICS if score is not None else None,
         "prediction": None if item is None else item.get("prediction"),
         "threshold": None if item is None else item.get("threshold"),
-        "overall_risk": None,
-        "risk_level": None,
+        "overall_risk": risk_level,
+        "risk_level": risk_level,
+        "risk_level_semantics": RISK_LEVEL_SEMANTICS,
+        "risk_level_version": RISK_LEVEL_VERSION,
+        "risk_level_is_experimental": True,
         "suspect_regions": [],
         "model_probabilities": [],
         "model_version": model.get("version"),
         "weight_sha256": model.get("weight_sha256"),
         "device": model.get("device"),
         "processing_time": _processing_time(task),
-        "conclusion": _conclusion(task, score),
+        "conclusion": _conclusion(task, score, risk_level),
     }
 
 

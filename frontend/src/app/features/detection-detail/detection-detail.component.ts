@@ -17,7 +17,7 @@ import {
   SuspectRegion,
 } from '../../core/services/mock-data.service';
 import { ReportService } from '../../core/services/report.service';
-import { TaskService, TaskResult } from '../../core/services/task.service';
+import { TaskService, TaskResult, RiskLevel } from '../../core/services/task.service';
 
 /**
  * DetectionDetailComponent — 鉴伪详情页（核心页面）
@@ -60,13 +60,14 @@ import { TaskService, TaskResult } from '../../core/services/task.service';
           <div class="header-left">
             <h2>{{ result()!.fileName }}</h2>
             <mat-chip-set>
-              <mat-chip [style.backgroundColor]="getRiskColor(result()!.overallRisk)">
-                {{ getRiskLabel(result()!.overallRisk) }}
+              <mat-chip [style.backgroundColor]="getRiskColor(result()!.riskLevel)">
+                {{ getRiskLabel(result()!.riskLevel) }}（实验性）
               </mat-chip>
               <mat-chip>
-                AI 生成风险分数: {{ (result()!.overallScore * 100).toFixed(0) }}%
+                AI 生成风险分数: {{ (result()!.scoreGenerated * 100).toFixed(0) }}%
               </mat-chip>
             </mat-chip-set>
+            <span class="risk-notice">五级风险尚不完善，DDPM/Pix2Pix 区分度待改进</span>
           </div>
           <div class="header-meta">
             <span class="meta-item">
@@ -169,6 +170,11 @@ import { TaskService, TaskResult } from '../../core/services/task.service';
           font-weight: 600;
           color: #1a1a2e;
           letter-spacing: -0.01em;
+        }
+
+        .risk-notice {
+          color: #b45309;
+          font-size: 0.75rem;
         }
       }
 
@@ -302,8 +308,9 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       maskAvailable: r.mask_available,
       maskImageUrl: r.mask_image_url,
       localizationMessage: r.localization_message ?? '当前版本不提供区域定位',
-      overallScore: r.overall_score,
-      overallRisk: 'unavailable',
+      scoreGenerated: r.score_generated,
+      riskLevel: r.risk_level,
+      riskLevelIsExperimental: r.risk_level_is_experimental,
       modelVersion: r.model_version,
       processingTime: r.processing_time,
       suspectRegions: r.suspect_regions,
@@ -339,15 +346,23 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  getRiskColor(risk: string): string {
+  getRiskColor(risk: RiskLevel): string {
     switch (risk) {
-      default: return '#f5f5f5';
+      case 'very_low': return '#dcfce7';
+      case 'low': return '#ecfccb';
+      case 'medium': return '#fef9c3';
+      case 'high': return '#ffedd5';
+      case 'very_high': return '#fee2e2';
     }
   }
 
-  getRiskLabel(risk: string): string {
+  getRiskLabel(risk: RiskLevel): string {
     switch (risk) {
-      default: return '风险分层待模型阈值';
+      case 'very_low': return '极低风险';
+      case 'low': return '低风险';
+      case 'medium': return '中风险';
+      case 'high': return '高风险';
+      case 'very_high': return '极高风险';
     }
   }
 }

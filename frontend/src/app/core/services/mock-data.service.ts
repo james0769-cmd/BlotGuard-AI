@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { RiskLevel } from './task.service';
 
 export interface SuspectRegion {
   id: number;
@@ -22,8 +23,9 @@ export interface DetectionResult {
   maskAvailable: boolean;
   maskImageUrl: string | null;
   localizationMessage: string;
-  overallScore: number;
-  overallRisk: 'unavailable';
+  scoreGenerated: number;
+  riskLevel: RiskLevel;
+  riskLevelIsExperimental: true;
   modelVersion: string;
   processingTime: number;
   suspectRegions: SuspectRegion[];
@@ -36,7 +38,7 @@ export interface UploadedFile {
   fileSize: number;
   uploadTime: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  overallScore?: number;
+  scoreGenerated?: number;
 }
 
 export interface SampleEntry {
@@ -51,6 +53,15 @@ export interface SampleEntry {
 }
 
 const MODEL_VERSION = 'detector-sam-vit-b-lora-r8-all-img512-51265aec';
+const RISK_BOUNDARIES = [0.1186554090, 0.2370573707, 0.4702857587, 0.6720226015];
+
+function riskLevelForScore(score: number): RiskLevel {
+  if (score < RISK_BOUNDARIES[0]) return 'very_low';
+  if (score < RISK_BOUNDARIES[1]) return 'low';
+  if (score < RISK_BOUNDARIES[2]) return 'medium';
+  if (score < RISK_BOUNDARIES[3]) return 'high';
+  return 'very_high';
+}
 
 // 25 张样本数据，来自 sample_data/western_blots_dataset/detector_golden.json
 export const SAMPLE_ENTRIES: SampleEntry[] = [
@@ -89,7 +100,7 @@ export class MockDataService {
     fileSize: 1_500_000 + i * 300_000,
     uploadTime: '2026-07-23 10:00:00',
     status: 'completed' as const,
-    overallScore: e.scoreGenerated,
+    scoreGenerated: e.scoreGenerated,
   }));
 
   getSampleEntries(): SampleEntry[] {
@@ -125,8 +136,9 @@ export class MockDataService {
       maskAvailable: false,
       maskImageUrl: null,
       localizationMessage: '当前版本不提供区域定位',
-      overallScore: entry.scoreGenerated,
-      overallRisk: 'unavailable',
+      scoreGenerated: entry.scoreGenerated,
+      riskLevel: riskLevelForScore(entry.scoreGenerated),
+      riskLevelIsExperimental: true,
       modelVersion: entry.modelVersion,
       processingTime: 8.3,
       suspectRegions: [],

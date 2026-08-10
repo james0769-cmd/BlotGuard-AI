@@ -3,6 +3,8 @@ import zipfile
 
 from PIL import Image
 
+from backend.blotguard.domain.risk import risk_level_for_score
+
 
 def test_png_analysis_report_artifact_and_delete(client, png_bytes):
     response = client.post(
@@ -150,14 +152,24 @@ def test_frontend_compat_login_upload_result_report(client, png_bytes):
     )
     assert payload["prediction"] in {"generated", "original"}
     assert payload["threshold"] == 0.5
-    assert payload["overall_risk"] is None
-    assert payload["risk_level"] is None
+    assert payload["risk_level"] == risk_level_for_score(
+        payload["score_generated"]
+    )
+    assert payload["overall_risk"] == payload["risk_level"]
+    assert payload["risk_level_semantics"] == (
+        "experimental_class_balanced_calibrated_risk"
+    )
+    assert payload["risk_level_version"] == (
+        "experimental-platt-balanced-v1"
+    )
+    assert payload["risk_level_is_experimental"] is True
     assert payload["suspect_regions"] == []
     assert payload["model_probabilities"] == []
     assert payload["model_version"] == "mock-v1"
     assert payload["weight_sha256"] == "not-a-real-model"
     assert payload["device"] == "cpu"
-    assert "五级风险阈值尚未确认" in payload["conclusion"]
+    assert "实验性五级风险" in payload["conclusion"]
+    assert "DDPM/Pix2Pix" in payload["conclusion"]
 
     report = client.get(f"/api/tasks/{task_id}/report")
     assert report.status_code == 200

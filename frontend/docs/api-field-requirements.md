@@ -121,8 +121,13 @@
   "mask_image_url": "string (SAM/LoRA 掩码叠加图 URL)",
 
   // --- 综合评分 ---
-  "overall_score": "number (0~1，兼容字段，等同于未校准的 score_generated)",
-  "overall_risk": "null（五级风险阈值确认后再替换为统一枚举）",
+  "score_generated": "number (0~1，唯一规范风险分数字段)",
+  "overall_score": "number (0~1，兼容字段，等同于 score_generated)",
+  "risk_level": "very_low | low | medium | high | very_high（唯一规范风险等级字段）",
+  "overall_risk": "兼容字段，等同于 risk_level",
+  "risk_level_is_experimental": true,
+  "risk_level_semantics": "experimental_class_balanced_calibrated_risk",
+  "risk_level_version": "experimental-platt-balanced-v1",
 
   // --- 可疑区域列表 ---
   "suspect_regions": [
@@ -245,8 +250,9 @@ Content-Type: application/json（除上传接口外）
 | `file_size` | `fileSize` |
 | `original_image_url` | `originalImageUrl` |
 | `mask_image_url` | `maskImageUrl` |
-| `overall_score` | `overallScore` |
-| `overall_risk` | `overallRisk` |
+| `score_generated` | `scoreGenerated` |
+| `risk_level` | `riskLevel` |
+| `risk_level_is_experimental` | `riskLevelIsExperimental` |
 | `suspect_regions` | `suspectRegions` |
 | `model_probabilities` | `modelProbabilities` |
 | `model_version` | `modelVersion` |

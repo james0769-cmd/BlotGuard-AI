@@ -87,8 +87,9 @@ P1 评估可靠性修复记录在 `docs/detector-p1-evaluation.md`。候选评�
 记录在 `docs/detector-data-splits.md`。新 test 尚未运行。
 
 Calibration 已完成，Platt 校准优于原始 sigmoid，但当前模型在 FPR 5% 约束下的
-DDPM recall 仅 54.8%、Pix2Pix recall 87.2%，未通过冻结门槛。诊断性阈值和五级
-边界不得进入配置或 UI，详见 `docs/detector-calibration.md`。
+DDPM recall 仅 54.8%、Pix2Pix recall 87.2%，未通过冻结门槛。二分类诊断阈值不得
+进入配置；五级边界按当前产品决策以实验性标记进入 API 和 UI，必须明示其模型质量
+限制，详见 `docs/detector-calibration.md`。
 
 本地连续编号的 25 张联调样本也已全部完成真实推理，结果保存在被忽略的
 `var/real_smoke_25.json`。

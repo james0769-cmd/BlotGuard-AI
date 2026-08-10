@@ -16,6 +16,8 @@ export interface TaskStatus {
   error_message: string | null;
 }
 
+export type RiskLevel = 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
+
 /**
  * 检测结果响应（对应 /api/tasks/{task_id}/result）
  */
@@ -31,7 +33,10 @@ export interface TaskResult {
   score_semantics: 'uncalibrated_sigmoid_risk_score';
   prediction: 'generated' | 'original';
   threshold: number;
-  risk_level: null;
+  risk_level: RiskLevel;
+  risk_level_semantics: 'experimental_class_balanced_calibrated_risk';
+  risk_level_version: 'experimental-platt-balanced-v1';
+  risk_level_is_experimental: true;
   model_version: string;
   weight_sha256: string;
   device: string;
