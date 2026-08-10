@@ -137,6 +137,10 @@ export class MockDataService {
     this.uploadedFiles.unshift(newFile);
   }
 
+  removeUploadedFile(id: string): void {
+    this.uploadedFiles = this.uploadedFiles.filter(f => f.id !== id);
+  }
+
   getDetectionResult(id: string): DetectionResult {
     const entry = SAMPLE_ENTRIES.find((e) => e.id === id) ?? SAMPLE_ENTRIES[0];
     return {

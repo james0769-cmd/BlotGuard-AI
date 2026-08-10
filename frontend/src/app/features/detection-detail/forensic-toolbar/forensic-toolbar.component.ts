@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, signal } from '@angular/core';
+import { Component, Input, Output, EventEmitter, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatSliderModule } from '@angular/material/slider';
 import { MatIconModule } from '@angular/material/icon';
@@ -11,7 +11,7 @@ import { FormsModule } from '@angular/forms';
  * 提供实时调节图像的：
  * - 亮度 (Brightness)
  * - 对比度 (Contrast)
- * - 掩码透明度 (Mask Opacity)
+ * - 掩码透明度 (Mask Opacity)，仅在 hasMask 为 true 时显示
  */
 @Component({
   selector: 'app-forensic-toolbar',
@@ -48,22 +48,29 @@ import { FormsModule } from '@angular/forms';
         </mat-slider>
       </div>
 
-      <!-- 掩码透明度 -->
-      <div class="slider-group">
-        <label>
-          <mat-icon>layers</mat-icon>
-          掩码透明度
-          <span class="value">{{ maskOpacityPercent() }}%</span>
-        </label>
-        <mat-slider min="0" max="100" step="1" [discrete]="true">
-          <input matSliderThumb [ngModel]="maskOpacityPercent()" (ngModelChange)="onMaskOpacityChange($event)" />
-        </mat-slider>
-      </div>
+      <!-- 掩码透明度（仅在有掩码时显示） -->
+      @if (hasMask) {
+        <div class="slider-group">
+          <label>
+            <mat-icon>layers</mat-icon>
+            掩码透明度
+            <span class="value">{{ maskOpacityPercent() }}%</span>
+          </label>
+          <mat-slider min="0" max="100" step="1" [discrete]="true">
+            <input matSliderThumb [ngModel]="maskOpacityPercent()" (ngModelChange)="onMaskOpacityChange($event)" />
+          </mat-slider>
+        </div>
+      } @else {
+        <p class="no-mask-hint">
+          <mat-icon>info</mat-icon>
+          当前模型不提供区域定位，掩码调节已隐藏
+        </p>
+      }
 
       <!-- 重置按钮 -->
       <button mat-stroked-button class="reset-btn" (click)="resetAll()">
         <mat-icon>restart_alt</mat-icon>
-        重置
+        重置全部
       </button>
     </div>
   `,
@@ -113,6 +120,23 @@ import { FormsModule } from '@angular/forms';
       }
     }
 
+    .no-mask-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: #9e9e9e;
+      padding: 8px 10px;
+      background: #f5f5f5;
+      border-radius: 6px;
+      margin: 0 0 16px;
+    }
+    .no-mask-hint mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
     .reset-btn {
       width: 100%;
       margin-top: 8px;
@@ -120,13 +144,15 @@ import { FormsModule } from '@angular/forms';
   `],
 })
 export class ForensicToolbarComponent {
+  @Input() hasMask = true;
   @Output() brightnessChange = new EventEmitter<number>();
   @Output() contrastChange = new EventEmitter<number>();
   @Output() maskOpacityChange = new EventEmitter<number>();
+  @Output() reset = new EventEmitter<void>();
 
   brightness = signal(100);
   contrast = signal(100);
-  maskOpacityPercent = signal(60); // 0~100 对应实际的 0~1
+  maskOpacityPercent = signal(60);
 
   onBrightnessChange(value: number): void {
     this.brightness.set(value);
@@ -147,5 +173,6 @@ export class ForensicToolbarComponent {
     this.onBrightnessChange(100);
     this.onContrastChange(100);
     this.onMaskOpacityChange(60);
+    this.reset.emit();
   }
 }

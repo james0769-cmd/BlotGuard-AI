@@ -1,6 +1,6 @@
 import {
   Component,
-  Input,
+  input,
   signal,
   computed,
   ElementRef,
@@ -54,7 +54,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         <div class="image-panel">
           <div class="panel-label">原始图像</div>
           <div class="image-wrapper" [style.transform]="transformStyle()">
-            <img [src]="originalImageUrl"
+            <img [src]="originalImageUrl()"
                  [style.filter]="filterStyle()"
                  alt="原始图像"
                  draggable="false" />
@@ -64,21 +64,28 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         <!-- 分隔线 -->
         <div class="divider"></div>
 
-        <!-- 右侧：掩码叠加图 -->
+        <!-- 右侧：掩码叠加图 / 无掩码提示 -->
         <div class="image-panel">
           <div class="panel-label">AI 检测结果</div>
-          <div class="image-wrapper" [style.transform]="transformStyle()">
-            <img [src]="originalImageUrl"
-                 [style.filter]="filterStyle()"
-                 alt="原始图像底层"
-                 draggable="false" />
-            <!-- 掩码叠加层 -->
-            <img [src]="maskImageUrl"
-                 class="mask-overlay"
-                 [style.opacity]="maskOpacity()"
-                 alt="SAM/LoRA 掩码"
-                 draggable="false" />
-          </div>
+          @if (hasMask()) {
+            <div class="image-wrapper" [style.transform]="transformStyle()">
+              <img [src]="originalImageUrl()"
+                   [style.filter]="filterStyle()"
+                   alt="原始图像底层"
+                   draggable="false" />
+              <img [src]="maskImageUrl()"
+                   class="mask-overlay"
+                   [style.opacity]="maskOpacity()"
+                   alt="SAM/LoRA 掩码"
+                   draggable="false" />
+            </div>
+          } @else {
+            <div class="mask-placeholder">
+              <mat-icon>hide_image</mat-icon>
+              <p>当前模型不提供区域定位</p>
+              <p class="hint-text">定位模型权重尚未配置或未启用</p>
+            </div>
+          }
         </div>
       </div>
     </div>
@@ -163,6 +170,31 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       pointer-events: none;
     }
 
+    .mask-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: #a0c4ff;
+      text-align: center;
+      padding: 24px;
+    }
+    .mask-placeholder mat-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+      opacity: 0.5;
+    }
+    .mask-placeholder p {
+      margin: 0;
+      font-size: 0.85rem;
+    }
+    .mask-placeholder .hint-text {
+      font-size: 0.75rem;
+      opacity: 0.6;
+    }
+
     .divider {
       width: 2px;
       background: #0f3460;
@@ -170,10 +202,16 @@ import { MatTooltipModule } from '@angular/material/tooltip';
   `],
 })
 export class CanvasViewerComponent implements AfterViewInit, OnDestroy {
-  @Input() originalImageUrl = '';
-  @Input() maskImageUrl = '';
-  @Input() brightness = 100; // 0~200
-  @Input() contrast = 100;   // 0~200
+  /** 原图 URL */
+  originalImageUrl = input('');
+  /** 掩码图 URL */
+  maskImageUrl = input('');
+  /** 是否有掩码 */
+  hasMask = input(true);
+  /** 亮度 0~200 */
+  brightness = input(100);
+  /** 对比度 0~200 */
+  contrast = input(100);
 
   @ViewChild('canvasArea') canvasAreaRef!: ElementRef<HTMLElement>;
 
@@ -200,7 +238,7 @@ export class CanvasViewerComponent implements AfterViewInit, OnDestroy {
 
   /** CSS filter 字符串 — 亮度/对比度调节 */
   filterStyle = computed(
-    () => `brightness(${this.brightness}%) contrast(${this.contrast}%)`
+    () => `brightness(${this.brightness()}%) contrast(${this.contrast()}%)`
   );
 
   /** 掩码透明度 */
