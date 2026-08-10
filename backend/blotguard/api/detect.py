@@ -34,6 +34,8 @@ def detect():
         result = _detector().predict(image_path).to_dict()
 
     result["image"] = image.filename
+    result["mask_available"] = False
     result["mask_image_url"] = None
     result["suspect_regions"] = []
+    result["localization_message"] = "当前版本不提供区域定位"
     return result

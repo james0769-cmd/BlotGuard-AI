@@ -43,8 +43,8 @@ import { MockDataService, SampleEntry } from '../../core/services/mock-data.serv
             <mat-card-content>
               <p class="file-name">{{ sample.fileName }}</p>
               <div class="card-meta">
-                <mat-chip [style.backgroundColor]="getRiskColor(sample.probabilityGenerated)">
-                  {{ (sample.probabilityGenerated * 100).toFixed(1) }}% 生成概率
+                <mat-chip class="score-chip">
+                  风险分数 {{ (sample.scoreGenerated * 100).toFixed(1) }}%
                 </mat-chip>
                 <span class="generator-tag">{{ getGeneratorLabel(sample.generator) }}</span>
               </div>
@@ -114,6 +114,7 @@ import { MockDataService, SampleEntry } from '../../core/services/mock-data.serv
       font-size: 13px;
     }
     .prediction-row mat-icon { font-size: 18px; width: 18px; height: 18px; }
+    .score-chip { background: #f5f5f5; }
   `],
 })
 export class GalleryComponent {
@@ -131,12 +132,6 @@ export class GalleryComponent {
     if (this.filterType === 'all') return this.samples;
     return this.samples.filter(s => s.expectedClass === this.filterType);
   });
-
-  getRiskColor(prob: number): string {
-    if (prob >= 0.7) return '#ffcdd2';
-    if (prob >= 0.4) return '#fff3e0';
-    return '#e8f5e9';
-  }
 
   getGeneratorLabel(gen: string): string {
     const labels: Record<string, string> = {

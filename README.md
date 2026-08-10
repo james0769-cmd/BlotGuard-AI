@@ -103,11 +103,17 @@ pip install -r requirements-model.txt
 models/weights/sam_vit_b_01ec64.pth
 ```
 
-当前 detector LoRA 权重直接引用材料目录中的：
+当前 detector LoRA 权重来自材料目录中的全 12 层 `lorasam_blots20`：
 
 ```text
-model_source/sam_lora_aigc_detect/Ablation/layer1_5/
+/Users/jamelee/graduate/project/sam_lora_aigc_detect/Ablation/lorasam_blots20/
   rank8-img_size512-vit_b-best_f1.pth
+```
+
+复制后固定为：
+
+```text
+models/weights/detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth
 ```
 
 校验：
@@ -169,4 +175,6 @@ python scripts/smoke_api.py --mode mock
 - `docs/backend-architecture.md`：系统流程、模块边界和扩展路径。
 - `docs/api-contract.md`：接口、状态和错误约定。
 - `docs/model-contract.md`：当前已知模型参数和待确认事项。
+- `docs/detector-data-splits.md`：Detector 原始划分与新冻结测试集。
+- `docs/detector-calibration.md`：Calibration、阈值与五级风险诊断结果。
 - `docs/openapi.yaml`：前后端共同使用的机器可读契约。

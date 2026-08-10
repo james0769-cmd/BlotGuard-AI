@@ -16,6 +16,8 @@ export interface TaskStatus {
   error_message: string | null;
 }
 
+export type RiskLevel = 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
+
 /**
  * 检测结果响应（对应 /api/tasks/{task_id}/result）
  */
@@ -23,10 +25,21 @@ export interface TaskResult {
   task_id: string;
   filename: string;
   original_image_url: string;
-  mask_image_url: string;
-  overall_score: number;        // 0~1 伪造置信度
-  risk_level: 'high' | 'medium' | 'low';
+  mask_available: boolean;
+  mask_image_url: string | null;
+  localization_message: string | null;
+  overall_score: number;        // 兼容字段，等同于 score_generated
+  score_generated: number;
+  score_semantics: 'uncalibrated_sigmoid_risk_score';
+  prediction: 'generated' | 'original';
+  threshold: number;
+  risk_level: RiskLevel;
+  risk_level_semantics: 'experimental_class_balanced_calibrated_risk';
+  risk_level_version: 'experimental-platt-balanced-v1';
+  risk_level_is_experimental: true;
   model_version: string;
+  weight_sha256: string;
+  device: string;
   processing_time: number;      // 秒
   suspect_regions: {
     id: number;

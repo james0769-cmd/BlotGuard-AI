@@ -10,7 +10,7 @@
 
 |能力|稳定入口|模型配置|结果|
 |---|---|---|---|
-|整图检测|`Detector.predict(image_path)`|输入最长边 512，LoRA rank 8，适配编码器第 0～5 层|AI 生成概率和二分类标签|
+|整图检测|`Detector.predict(image_path)`|输入 512 x 512，LoRA rank 8，适配全部 12 个编码层|AI 生成风险分数和二分类标签|
 |伪造定位|`Localizer.predict(image_path, output_path)`|输入最长边 1024，LoRA rank 8，适配全部编码器层|入口保留，本阶段默认关闭|
 
 最小推理源码位于：
@@ -28,7 +28,7 @@
 |名称|系统内路径|用途|大小（bytes）|SHA-256|
 |---|---|---|---:|---|
 |SAM ViT-B|`models/weights/sam_vit_b_01ec64.pth`|检测、定位共用的基础权重|375042383|`ec2df62732614e57411cdcf32a23ffdf28910380d03139ee0f4fcbe91eb8c912`|
-|Detector LoRA|`models/weights/detector/rank8-img_size512-vit_b-best_f1.pth`|整图 AI 生成检测|2153517|`4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8`|
+|Detector LoRA|`models/weights/detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth`|整图 AI 生成检测|2751077|`51265aecd96858feeead19cc47f9bd3dc0af3fa7d793582482a9287a153c3e25`|
 |Localizer LoRA|`models/weights/localizer/rank8-img_size1024-vit_b-best_f1.pth`|像素级伪造定位|17500687|`337ef9d06885a30ec52b8aee69dd0d9c223ef71396f16bcbd57cf5df157fe552`|
 
 三份文件已放入上述路径，并于 2026 年 7 月 12 日通过大小和 SHA-256 校验。权重受 Git 忽略规则保护，不应提交到仓库。
@@ -45,11 +45,11 @@ conda run -n blotguard-ai python scripts/verify_model_assets.py
 
 ```text
 /Users/jamelee/graduate/project/sam_lora_aigc_detect/pretrained_weights/sam_vit_b_01ec64.pth
-/Users/jamelee/graduate/project/sam_lora_aigc_detect/Ablation/layer1_5/rank8-img_size512-vit_b-best_f1.pth
+/Users/jamelee/graduate/project/sam_lora_aigc_detect/Ablation/lorasam_blots20/rank8-img_size512-vit_b-best_f1.pth
 /Users/jamelee/graduate/project/segment-anything-main_lora/western_blot/weight_1024/rank8-img_size1024-vit_b-best_f1.pth
 ```
 
-检测 checkpoint 包含 12 组 LoRA A/B 参数和 FCN 分类器参数，对应 6 个编码层的 Q、V 适配。定位 checkpoint 包含 24 组 LoRA A/B 参数以及 SAM prompt encoder、mask decoder 参数，对应 12 个编码层的 Q、V 适配。
+检测 checkpoint 包含 24 组 LoRA A/B 参数和 FCN 分类器参数，对应 12 个编码层的 Q、V 适配。定位 checkpoint 包含 24 组 LoRA A/B 参数以及 SAM prompt encoder、mask decoder 参数，对应 12 个编码层的 Q、V 适配。
 
 ## 4. 运行环境
 
@@ -94,7 +94,7 @@ Localizer.predict(image_path, output_path)
 
 1. 使用 OpenCV 以彩色模式读取图片。
 2. 将 BGR 转为 RGB。
-3. 保持宽高比，将最长边缩放至模型配置尺寸。
+3. 当前 Detector 将图像直接缩放至 512 x 512；是否改为保持宽高比仍待模型负责人确认。
 4. 检测模型使用 512，定位模型使用 1024。
 5. 调用 SAM `preprocess()` 完成标准化和尺寸补齐。
 6. 定位结果经 SAM `postprocess_masks()` 恢复到原图尺寸。
@@ -105,19 +105,25 @@ Localizer.predict(image_path, output_path)
 
 ### 6.1 整图检测
 
-模型产生单个 logit，经 sigmoid 转换为 `probability_generated`。当前固定阈值为 0.5：大于 0.5 为 `generated`，否则为 `original`。
+模型产生单个 logit，经 sigmoid 转换为 `score_generated`。该值没有经过概率校准，固定语义为 `uncalibrated_sigmoid_risk_score`，只能解释为 AI 生成风险分数。当前固定阈值为 0.5：大于 0.5 为 `generated`，否则为 `original`。
 
 ```json
 {
   "task": "detect",
   "image": "tests/fixtures/western_blot_sample.png",
   "device": "cpu",
-  "logit": 0.5585181713104248,
-  "probability_generated": 0.6361096501350403,
-  "prediction": "generated",
+  "logit": -0.41356462240219116,
+  "score_generated": 0.3980577290058136,
+  "score_semantics": "uncalibrated_sigmoid_risk_score",
+  "prediction": "original",
   "threshold": 0.5,
-  "model_version": "detector-sam-vit-b-lora-r8-l0-5-img512-4939e568",
-  "weight_sha256": "4939e56854dc4b080327a4b5841fba651f0ea6e812006eb2e9a0b0eaee82cad8"
+  "model_name": "western-blot-aigc-detector",
+  "model_version": "detector-sam-vit-b-lora-r8-all-img512-51265aec",
+  "weight_sha256": "51265aecd96858feeead19cc47f9bd3dc0af3fa7d793582482a9287a153c3e25",
+  "is_mock": false,
+  "mask_available": false,
+  "mask_image_url": null,
+  "localization_message": "当前版本不提供区域定位"
 }
 ```
 
@@ -125,7 +131,7 @@ Localizer.predict(image_path, output_path)
 
 ### 6.2 伪造定位
 
-本阶段 `localizer_enabled = false`。后端固定返回 `mask_image_url = null`、`suspect_regions = []`。以下内容是后续启用时的模型输出说明。
+本阶段 `localizer_enabled = false`。后端固定返回 `mask_available = false`、`mask_image_url = null`、`suspect_regions = []` 和“当前版本不提供区域定位”。以下内容是后续启用时的模型输出说明。
 
 模型输出单通道 mask logits，经 sigmoid 后使用 0.5 阈值二值化：0 表示未标记区域，255 表示模型标记区域。掩膜以 8-bit 灰度 PNG 保存。
 
@@ -140,7 +146,7 @@ Localizer.predict(image_path, output_path)
 }
 ```
 
-`mask_mean` 表示二值掩膜中被标记像素的占比，不是置信度，也不能直接等同于整图 AI 生成概率。
+`mask_mean` 表示二值掩膜中被标记像素的占比，不是置信度，也不能直接等同于整图 AI 生成风险分数。
 
 ## 7. 最小推理与回归基线
 
@@ -170,9 +176,9 @@ CPU smoke 命令：
 
 |检查项|基线值|
 |---|---|
-|检测 logit|0.5585181713104248|
-|AI 生成概率|0.6361096501350403|
-|检测标签|`generated`|
+|检测 logit|-0.41356462240219116|
+|AI 生成风险分数|0.3980577290058136|
+|检测标签|`original`|
 |掩膜尺寸|256×256|
 |掩膜标记比例|0.2121734619140625|
 |掩膜 SHA-256|`b655d165578753b2317afe14fcb2b5693457924046b840b6c4e7aaa0191a7766`|
@@ -198,6 +204,8 @@ python scripts/generate_detector_regression.py --device cpu
 - 当前 25 张固定样例仅用于回归，不能据此评价准确率、召回率或泛化能力。
 - 两个 `best_f1` 权重的验证集、F1 数值和选择过程未在当前仓库记录。
 - 检测与定位均使用固定 0.5 阈值，尚未提供阈值标定证据。
+- 检测阈值分析工具已提供 FPR 约束和完整分类指标；当前审计集结果仅供诊断，
+  不具备修改正式阈值的资格，详见 `docs/detector-p1-evaluation.md`。
 - 检测标签只表达模型判断，不构成科研诚信、法律或事实层面的最终鉴定。
 - 定位掩膜是模型标记区域，不保证覆盖所有伪造区域，也可能产生误报。
 - 当前实现按单张图片同步推理，尚未验证批处理和并发行为。
@@ -210,7 +218,7 @@ python scripts/generate_detector_regression.py --device cpu
 后端首次接入真实模型时，至少应保留以下信息：
 
 - 原始文件名或任务内文件标识。
-- `probability_generated` 和 `prediction`。
+- `score_generated`、`score_semantics` 和 `prediction`。
 - 定位掩膜文件路径或可访问资源标识。
 - `mask_shape` 和 `mask_mean`。
 - 实际使用的模型版本或权重哈希。
@@ -224,8 +232,8 @@ python scripts/generate_detector_regression.py --device cpu
 backend_model_ready = true
 detector_enabled = true
 localizer_enabled = false
-preprocess_mode = longest_side
-detector_default_weight = models/weights/detector/rank8-img_size512-vit_b-best_f1.pth
+preprocess_mode = stretch
+detector_default_weight = models/weights/detector/rank8-full12-img_size512-vit_b-blots20-best_f1.pth
 ```
 
 必需文件为 SAM ViT-B 基础权重、Detector LoRA 权重、`models/source/` 推理源码和 `configs/default.yaml`。运行 `python scripts/verify_model_assets.py`、`python scripts/smoke_detect.py --device cpu --image sample_data/western_blots_dataset/real/real_img_00000.png` 以及 `python scripts/generate_detector_regression.py --device cpu` 均应成功。Localizer 启用前继续返回空定位结果。

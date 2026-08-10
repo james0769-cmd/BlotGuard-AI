@@ -29,7 +29,7 @@ class MockDetector:
                 version="mock-v1",
                 weight_sha256="not-a-real-model",
                 threshold=0.5,
-                runtime="deterministic-hash",
+                runtime="deterministic-hash:cpu",
                 is_mock=True,
             ),
         )

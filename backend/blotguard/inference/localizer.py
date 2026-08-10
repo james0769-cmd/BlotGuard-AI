@@ -10,7 +10,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from backend.blotguard.core.config import InferenceConfig
+from backend.blotguard.core.config import ModelConfig
 from .common import load_image, resolve_device
 from .contracts import LocalizationResult
 
@@ -33,7 +33,7 @@ class LoRAQKV(nn.Module):
 
 
 class Localizer:
-    def __init__(self, config: InferenceConfig, device: str = "auto"):
+    def __init__(self, config: ModelConfig, device: str = "auto"):
         self.config = config
         self.device = resolve_device(torch, device)
         self.model = self._load_model()
@@ -118,7 +118,12 @@ class Localizer:
         image = Path(image_path)
         output = Path(output_path)
         image_tensor, input_size, original_size = load_image(
-            cv2, torch, self.model.sam, image, self.device
+            cv2,
+            torch,
+            self.model.sam,
+            image,
+            self.device,
+            self.config.preprocess_mode,
         )
         with torch.no_grad():
             low_res_logits = self.model(image_tensor)

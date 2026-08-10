@@ -66,7 +66,6 @@ def main() -> None:
         result["sample_sha256"] = actual_sha256
         result["expected_source_class"] = sample["expected_source_class"]
         result["generator"] = sample["generator"]
-        result.pop("image", None)
         rows.append(result)
         print(f"[{index:02d}/25] {sample['sample_path']}", flush=True)
 
@@ -76,12 +75,15 @@ def main() -> None:
         "expected_source_class",
         "generator",
         "logit",
-        "probability_generated",
+        "score_generated",
+        "score_semantics",
         "prediction",
         "threshold",
+        "model_name",
         "model_version",
         "weight_sha256",
         "device",
+        "is_mock",
         "task",
     ]
     args.json_output.parent.mkdir(parents=True, exist_ok=True)
@@ -90,9 +92,14 @@ def main() -> None:
         json.dumps(rows, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
     with args.csv_output.open("w", newline="", encoding="utf-8") as stream:
-        writer = csv.DictWriter(stream, fieldnames=fieldnames)
+        writer = csv.DictWriter(
+            stream, fieldnames=fieldnames, lineterminator="\n"
+        )
         writer.writeheader()
-        writer.writerows(rows)
+        writer.writerows(
+            {**row, "is_mock": str(row["is_mock"]).lower()}
+            for row in rows
+        )
 
     print(f"Wrote {args.json_output}")
     print(f"Wrote {args.csv_output}")

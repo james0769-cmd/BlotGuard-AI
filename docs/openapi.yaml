@@ -286,9 +286,34 @@ components:
               type: [number, "null"]
               minimum: 0
               maximum: 1
+              deprecated: true
+              description: Compatibility alias of score_generated.
+            score_generated:
+              type: [number, "null"]
+              minimum: 0
+              maximum: 1
+              description: Canonical uncalibrated detector score.
+            score_semantics:
+              type: [string, "null"]
+              const: uncalibrated_sigmoid_risk_score
             overall_risk:
               type: [string, "null"]
-              enum: [high, medium, low, null]
+              enum: [very_low, low, medium, high, very_high, null]
+              deprecated: true
+              description: Compatibility alias of risk_level.
+            risk_level:
+              type: [string, "null"]
+              enum: [very_low, low, medium, high, very_high, null]
+              description: Canonical experimental five-level risk.
+            risk_level_semantics:
+              type: string
+              const: experimental_class_balanced_calibrated_risk
+            risk_level_version:
+              type: string
+              const: experimental-platt-balanced-v1
+            risk_level_is_experimental:
+              type: boolean
+              const: true
             suspect_regions:
               type: array
               items:

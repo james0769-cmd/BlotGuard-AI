@@ -1,28 +1,34 @@
-from backend.blotguard.inference.contracts import DetectionResult, LocalizationResult
+from backend.blotguard.domain.contracts import DetectionResult, ModelMetadata
+from backend.blotguard.inference.contracts import LocalizationResult
 
 
 def test_detection_result_wire_shape():
     result = DetectionResult(
-        "image.png",
-        "cpu",
-        0.1,
-        0.5,
-        "original",
-        0.5,
-        "detector-v1",
-        "abc123",
+        prediction="original",
+        score_generated=0.5,
+        threshold=0.5,
+        logit=0.1,
+        model=ModelMetadata(
+            name="detector",
+            version="detector-v1",
+            weight_sha256="abc123",
+            threshold=0.5,
+            runtime="pytorch:cpu",
+        ),
     )
 
     assert result.to_dict() == {
         "task": "detect",
-        "image": "image.png",
         "device": "cpu",
         "logit": 0.1,
-        "probability_generated": 0.5,
+        "score_generated": 0.5,
+        "score_semantics": "uncalibrated_sigmoid_risk_score",
         "prediction": "original",
         "threshold": 0.5,
+        "model_name": "detector",
         "model_version": "detector-v1",
         "weight_sha256": "abc123",
+        "is_mock": False,
     }
 
 
