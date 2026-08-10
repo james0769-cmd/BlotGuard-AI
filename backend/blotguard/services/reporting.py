@@ -143,6 +143,8 @@ class ReportService:
 
     def _summary_table(self, task: dict, style: ParagraphStyle) -> Table:
         summary = task["summary"]
+        score = summary.get("score_generated")
+        risk_level = summary.get("risk_level")
         rows = [
             ["图片总数", "疑似 AI 生成", "疑似真实", "分析失败"],
             [
@@ -150,6 +152,24 @@ class ReportService:
                 str(summary["generated"]),
                 str(summary["original"]),
                 str(summary["failed"]),
+            ],
+            [
+                "文件级判断",
+                (
+                    "疑似 AI 生成"
+                    if summary.get("prediction") == "generated"
+                    else "疑似真实"
+                    if summary.get("prediction") == "original"
+                    else "无有效结果"
+                ),
+                "最高风险分数",
+                f"{score:.4f}" if score is not None else "-",
+            ],
+            [
+                "五级风险（实验性）",
+                RISK_LEVEL_LABELS.get(risk_level, "-"),
+                "风险分层版本",
+                summary.get("risk_level_version", "-"),
             ],
         ]
         return self._table(rows, style, [40 * mm] * 4, header=True)

@@ -65,6 +65,14 @@ def get_report(task_id: str):
         None,
     )
     if report is None:
+        if task["status"] == "failed":
+            task_error = task.get("error") or {}
+            raise AppError(
+                "TASK_FAILED",
+                task_error.get("message") or "Analysis task failed",
+                409,
+                {"task_error": task_error},
+            )
         raise AppError(
             "REPORT_NOT_READY",
             "The report is not available for this task",

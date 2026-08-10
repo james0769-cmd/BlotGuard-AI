@@ -249,17 +249,36 @@ components:
               type: string
     FrontendTask:
       type: object
-      required: [task_id, file_name, status, progress, created_at]
+      required:
+        - task_id
+        - file_name
+        - file_type
+        - status
+        - backend_status
+        - progress
+        - created_at
       properties:
         task_id:
           type: string
           format: uuid
         file_name:
           type: string
+        file_type:
+          type: string
+          enum: [jpg, jpeg, jfif, png, tif, tiff, pdf, docx]
         file_size:
           type: [integer, "null"]
         status:
           enum: [pending, processing, completed, failed]
+        backend_status:
+          enum:
+            - queued
+            - extracting
+            - inferencing
+            - reporting
+            - succeeded
+            - failed
+            - cancelled
         progress:
           type: integer
           minimum: 0
@@ -276,12 +295,34 @@ components:
       allOf:
         - $ref: "#/components/schemas/FrontendTask"
         - type: object
+          required:
+            - image_count
+            - items
+            - result_summary
+            - mask_available
+            - risk_level_is_experimental
+            - is_mock
+            - report_available
           properties:
             original_image_url:
               type: [string, "null"]
+              description: Compatibility alias for the first result item.
+            image_count:
+              type: integer
+              minimum: 0
+            items:
+              type: array
+              items:
+                $ref: "#/components/schemas/FrontendResultItem"
+            result_summary:
+              $ref: "#/components/schemas/AnalysisSummary"
+            mask_available:
+              type: boolean
             mask_image_url:
               type: [string, "null"]
-              description: Null until localization output is confirmed.
+              description: Compatibility alias for the first result item.
+            localization_message:
+              type: [string, "null"]
             overall_score:
               type: [number, "null"]
               minimum: 0
@@ -296,6 +337,11 @@ components:
             score_semantics:
               type: [string, "null"]
               const: uncalibrated_sigmoid_risk_score
+            prediction:
+              type: [string, "null"]
+              enum: [generated, original, null]
+            threshold:
+              type: [number, "null"]
             overall_risk:
               type: [string, "null"]
               enum: [very_low, low, medium, high, very_high, null]
@@ -305,6 +351,8 @@ components:
               type: [string, "null"]
               enum: [very_low, low, medium, high, very_high, null]
               description: Canonical experimental five-level risk.
+            risk_level_label:
+              type: [string, "null"]
             risk_level_semantics:
               type: string
               const: experimental_class_balanced_calibrated_risk
@@ -326,10 +374,86 @@ components:
               description: Empty until multi-generator probabilities are confirmed.
             model_version:
               type: [string, "null"]
+            weight_sha256:
+              type: [string, "null"]
+            device:
+              type: [string, "null"]
+            is_mock:
+              type: boolean
+            report_available:
+              type: boolean
+            report_url:
+              type: [string, "null"]
             processing_time:
               type: [number, "null"]
             conclusion:
               type: string
+    FrontendResultItem:
+      type: object
+      required:
+        - item_id
+        - status
+        - source_index
+        - mask_available
+        - risk_level_is_experimental
+      properties:
+        item_id:
+          type: string
+          format: uuid
+        status:
+          enum: [pending, succeeded, failed]
+        source_name:
+          type: string
+        source_index:
+          type: integer
+          minimum: 1
+        page_number:
+          type: [integer, "null"]
+          minimum: 1
+        width:
+          type: integer
+        height:
+          type: integer
+        sha256:
+          type: string
+        prediction:
+          type: [string, "null"]
+          enum: [generated, original, null]
+        score_generated:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+        score_semantics:
+          type: [string, "null"]
+          const: uncalibrated_sigmoid_risk_score
+        threshold:
+          type: [number, "null"]
+        risk_level:
+          type: [string, "null"]
+          enum: [very_low, low, medium, high, very_high, null]
+        risk_level_label:
+          type: [string, "null"]
+        risk_level_semantics:
+          type: string
+          const: experimental_class_balanced_calibrated_risk
+        risk_level_version:
+          type: string
+          const: experimental-platt-balanced-v1
+        risk_level_is_experimental:
+          type: boolean
+          const: true
+        original_image_url:
+          type: [string, "null"]
+        mask_available:
+          type: boolean
+        mask_image_url:
+          type: [string, "null"]
+        mask_coverage:
+          type: [number, "null"]
+        localization_message:
+          type: [string, "null"]
+        error:
+          type: [object, "null"]
     AnalysisTask:
       type: object
       required: [schema_version, task_id, status, input, items]
@@ -346,7 +470,7 @@ components:
         model:
           type: [object, "null"]
         summary:
-          type: object
+          $ref: "#/components/schemas/AnalysisSummary"
         items:
           type: array
           items:
@@ -361,6 +485,53 @@ components:
             type: string
         error:
           type: [object, "null"]
+        report_available:
+          type: boolean
+        report_url:
+          type: [string, "null"]
+    AnalysisSummary:
+      type: object
+      required:
+        - total
+        - succeeded
+        - failed
+        - generated
+        - original
+        - risk_level_is_experimental
+      properties:
+        total:
+          type: integer
+        succeeded:
+          type: integer
+        failed:
+          type: integer
+        generated:
+          type: integer
+        original:
+          type: integer
+        score_generated:
+          type: [number, "null"]
+          minimum: 0
+          maximum: 1
+          description: Maximum score among successful image results.
+        score_semantics:
+          type: [string, "null"]
+          const: uncalibrated_sigmoid_risk_score
+        prediction:
+          type: [string, "null"]
+          enum: [generated, original, null]
+        risk_level:
+          type: [string, "null"]
+          enum: [very_low, low, medium, high, very_high, null]
+        risk_level_semantics:
+          type: string
+          const: experimental_class_balanced_calibrated_risk
+        risk_level_version:
+          type: string
+          const: experimental-platt-balanced-v1
+        risk_level_is_experimental:
+          type: boolean
+          const: true
     Error:
       type: object
       required: [error]

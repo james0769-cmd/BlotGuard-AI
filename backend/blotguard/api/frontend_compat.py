@@ -19,7 +19,6 @@ from backend.blotguard.domain.risk import (
     RISK_LEVEL_LABELS,
     RISK_LEVEL_SEMANTICS,
     RISK_LEVEL_VERSION,
-    risk_level_for_score,
 )
 
 
@@ -105,6 +104,13 @@ def _artifact_url(
     return None if artifact is None else artifact["url"]
 
 
+def _report_available(task: dict[str, Any]) -> bool:
+    return any(
+        artifact.get("kind") == "report"
+        for artifact in task.get("artifacts", [])
+    )
+
+
 def _conclusion(
     task: dict[str, Any], score: float | None, risk_level: str | None
 ) -> str:
@@ -124,8 +130,10 @@ def _summary(task: dict[str, Any]) -> dict[str, Any]:
     return {
         "task_id": task["task_id"],
         "file_name": task["input"]["filename"],
+        "file_type": task["input"].get("extension"),
         "file_size": _file_size(task),
         "status": _frontend_status(task),
+        "backend_status": task["status"],
         "progress": _progress(task),
         "created_at": task["created_at"],
         "completed_at": task.get("completed_at"),
@@ -137,20 +145,62 @@ def _summary(task: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _item_result(item: dict[str, Any]) -> dict[str, Any]:
+    mask_url = _artifact_url(item, "mask", "mask_overlay")
+    risk_level = item.get("risk_level")
+    return {
+        "item_id": item["id"],
+        "status": item["status"],
+        "source_name": item["source_name"],
+        "source_index": item["source_index"],
+        "page_number": item.get("page_number"),
+        "width": item["width"],
+        "height": item["height"],
+        "sha256": item["sha256"],
+        "prediction": item.get("prediction"),
+        "score_generated": item.get("score_generated"),
+        "score_semantics": item.get("score_semantics"),
+        "threshold": item.get("threshold"),
+        "risk_level": risk_level,
+        "risk_level_label": (
+            RISK_LEVEL_LABELS.get(risk_level) if risk_level else None
+        ),
+        "risk_level_semantics": item.get("risk_level_semantics"),
+        "risk_level_version": item.get("risk_level_version"),
+        "risk_level_is_experimental": item.get(
+            "risk_level_is_experimental", True
+        ),
+        "original_image_url": _artifact_url(item, "extracted_image"),
+        "mask_available": mask_url is not None,
+        "mask_image_url": mask_url,
+        "mask_coverage": item.get("mask_coverage"),
+        "localization_message": (
+            None if mask_url else "当前版本不提供区域定位"
+        ),
+        "error": item.get("error"),
+    }
+
+
 def _result(task: dict[str, Any]) -> dict[str, Any]:
-    item = _first_item(task)
-    score = None if item is None else item.get("score_generated")
-    risk_level = risk_level_for_score(score)
+    first_item = _first_item(task)
+    items = [_item_result(item) for item in task.get("items", [])]
+    result_summary = task.get("summary") or {}
+    score = result_summary.get("score_generated")
+    risk_level = result_summary.get("risk_level")
     model = task.get("model") or {}
     summary = _summary(task)
-    mask_url = _artifact_url(item, "mask", "mask_overlay")
-    mask_available = mask_url is not None
+    mask_url = _artifact_url(first_item, "mask", "mask_overlay")
+    mask_available = any(item["mask_available"] for item in items)
+    report_available = _report_available(task)
     return {
         **summary,
         # Keep the contract names and the current frontend service aliases
         # together until the frontend normalizes its response model.
         "filename": summary["file_name"],
-        "original_image_url": _artifact_url(item, "extracted_image"),
+        "original_image_url": _artifact_url(first_item, "extracted_image"),
+        "image_count": len(items),
+        "items": items,
+        "result_summary": result_summary,
         "mask_available": mask_available,
         "mask_image_url": mask_url,
         "localization_message": (
@@ -159,10 +209,13 @@ def _result(task: dict[str, Any]) -> dict[str, Any]:
         "overall_score": score,
         "score_generated": score,
         "score_semantics": SCORE_SEMANTICS if score is not None else None,
-        "prediction": None if item is None else item.get("prediction"),
-        "threshold": None if item is None else item.get("threshold"),
+        "prediction": result_summary.get("prediction"),
+        "threshold": model.get("threshold"),
         "overall_risk": risk_level,
         "risk_level": risk_level,
+        "risk_level_label": (
+            RISK_LEVEL_LABELS.get(risk_level) if risk_level else None
+        ),
         "risk_level_semantics": RISK_LEVEL_SEMANTICS,
         "risk_level_version": RISK_LEVEL_VERSION,
         "risk_level_is_experimental": True,
@@ -171,6 +224,13 @@ def _result(task: dict[str, Any]) -> dict[str, Any]:
         "model_version": model.get("version"),
         "weight_sha256": model.get("weight_sha256"),
         "device": model.get("device"),
+        "is_mock": bool(model.get("is_mock", False)),
+        "report_available": report_available,
+        "report_url": (
+            f'/api/tasks/{task["task_id"]}/report'
+            if report_available
+            else None
+        ),
         "processing_time": _processing_time(task),
         "conclusion": _conclusion(task, score, risk_level),
     }
@@ -238,6 +298,14 @@ def get_task_report(task_id: str):
         None,
     )
     if report is None:
+        if task["status"] == TaskStatus.FAILED:
+            task_error = task.get("error") or {}
+            raise AppError(
+                "TASK_FAILED",
+                task_error.get("message") or "Analysis task failed",
+                409,
+                {"task_error": task_error},
+            )
         raise AppError(
             "REPORT_NOT_READY",
             "The report is not available for this task",

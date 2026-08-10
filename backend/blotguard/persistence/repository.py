@@ -18,6 +18,11 @@ from backend.blotguard.domain.contracts import (
     TaskStatus,
     device_from_runtime,
 )
+from backend.blotguard.domain.risk import (
+    RISK_LEVEL_SEMANTICS,
+    RISK_LEVEL_VERSION,
+    risk_level_for_score,
+)
 from backend.blotguard.core.errors import NotFoundError
 from .models import AnalysisItem, AnalysisTask, Artifact, Base
 
@@ -250,6 +255,10 @@ class AnalysisRepository:
                     SCORE_SEMANTICS if item.score_generated is not None else None
                 ),
                 "threshold": item.threshold,
+                "risk_level": risk_level_for_score(item.score_generated),
+                "risk_level_semantics": RISK_LEVEL_SEMANTICS,
+                "risk_level_version": RISK_LEVEL_VERSION,
+                "risk_level_is_experimental": True,
                 "mask_available": mask_available,
                 "mask_coverage": item.mask_coverage,
                 "localization_message": (
@@ -278,12 +287,29 @@ class AnalysisRepository:
                     artifact["path"] = matching.path
             items.append(item_data)
 
+        scored_items = [
+            item for item in items if item["score_generated"] is not None
+        ]
+        overall_item = (
+            max(scored_items, key=lambda item: item["score_generated"])
+            if scored_items
+            else None
+        )
+        overall_score = (
+            overall_item["score_generated"] if overall_item else None
+        )
+        report_available = any(
+            artifact.kind == "report" and artifact.item_id is None
+            for artifact in task.artifacts
+        )
+
         result: dict[str, Any] = {
             "schema_version": "1.0",
             "task_id": task.id,
             "status": task.status,
             "input": {
                 "filename": task.original_filename,
+                "extension": task.extension,
                 "media_type": task.media_type,
                 "sha256": task.source_sha256,
             },
@@ -319,6 +345,17 @@ class AnalysisRepository:
                 "original": sum(
                     item["prediction"] == "original" for item in items
                 ),
+                "score_generated": overall_score,
+                "score_semantics": (
+                    SCORE_SEMANTICS if overall_score is not None else None
+                ),
+                "prediction": (
+                    overall_item["prediction"] if overall_item else None
+                ),
+                "risk_level": risk_level_for_score(overall_score),
+                "risk_level_semantics": RISK_LEVEL_SEMANTICS,
+                "risk_level_version": RISK_LEVEL_VERSION,
+                "risk_level_is_experimental": True,
             },
             "items": items,
             "artifacts": [
@@ -326,6 +363,12 @@ class AnalysisRepository:
                 for artifact in task.artifacts
                 if artifact.item_id is None
             ],
+            "report_available": report_available,
+            "report_url": (
+                f"/api/v1/analyses/{task.id}/report"
+                if report_available
+                else None
+            ),
             "warnings": (
                 [
                     "Development mock inference was used. "
