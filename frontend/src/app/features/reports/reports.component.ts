@@ -136,13 +136,13 @@ import { ReportService } from '../../core/services/report.service';
 
                     <mat-card-content>
                       <div class="report-meta">
-                        <mat-chip [style.backgroundColor]="getRiskBgColor(task.overallScore)">
-                          {{ getRiskLabel(task.overallScore) }}
+                        <mat-chip [style.backgroundColor]="getRiskBgColor(task.scoreGenerated)">
+                          {{ getRiskLabel(task.scoreGenerated) }}
                         </mat-chip>
                         <span class="score-display">
                           生成概率:
-                          <strong [style.color]="getScoreColor(task.overallScore)">
-                            {{ task.overallScore != null ? (task.overallScore * 100).toFixed(1) + '%' : '--' }}
+                          <strong [style.color]="getScoreColor(task.scoreGenerated)">
+                            {{ task.scoreGenerated != null ? (task.scoreGenerated * 100).toFixed(1) + '%' : '--' }}
                           </strong>
                         </span>
                       </div>

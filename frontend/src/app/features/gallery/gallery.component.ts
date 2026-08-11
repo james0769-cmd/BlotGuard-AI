@@ -61,15 +61,15 @@ import { MockDataService, SampleEntry } from '../../core/services/mock-data.serv
       <div class="gallery-grid">
         @for (sample of filteredSamples(); track sample.id) {
           <mat-card class="sample-card" (click)="openDetail(sample.id)">
-            <div class="tier-badge" [class]="getTierClass(sample.probabilityGenerated)">
-              {{ getTierLabel(sample.probabilityGenerated) }}
+            <div class="tier-badge" [class]="getTierClass(sample.scoreGenerated)">
+              {{ getTierLabel(sample.scoreGenerated) }}
             </div>
             <img [src]="sample.assetPath" [alt]="sample.fileName" class="sample-thumb" loading="lazy" />
             <mat-card-content>
               <p class="file-name">{{ sample.fileName }}</p>
               <div class="card-meta">
-                <mat-chip [style.backgroundColor]="getRiskColor(sample.probabilityGenerated)">
-                  {{ (sample.probabilityGenerated * 100).toFixed(1) }}% 生成概率
+                <mat-chip [style.backgroundColor]="getRiskColor(sample.scoreGenerated)">
+                  {{ (sample.scoreGenerated * 100).toFixed(1) }}% 生成概率
                 </mat-chip>
                 <span class="generator-tag">{{ getGeneratorLabel(sample.generator) }}</span>
               </div>
@@ -195,24 +195,24 @@ export class GalleryComponent {
   }
 
   /** 5级风险计数 */
-  highConfidenceCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.8).length);
-  suspectedCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.5 && s.probabilityGenerated < 0.8).length);
-  uncertainCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.3 && s.probabilityGenerated < 0.5).length);
-  likelyRealCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.1 && s.probabilityGenerated < 0.3).length);
-  highConfidenceRealCount = computed(() => this.samples.filter(s => s.probabilityGenerated < 0.1).length);
+  highConfidenceCount = computed(() => this.samples.filter(s => s.scoreGenerated >= 0.8).length);
+  suspectedCount = computed(() => this.samples.filter(s => s.scoreGenerated >= 0.5 && s.scoreGenerated < 0.8).length);
+  uncertainCount = computed(() => this.samples.filter(s => s.scoreGenerated >= 0.3 && s.scoreGenerated < 0.5).length);
+  likelyRealCount = computed(() => this.samples.filter(s => s.scoreGenerated >= 0.1 && s.scoreGenerated < 0.3).length);
+  highConfidenceRealCount = computed(() => this.samples.filter(s => s.scoreGenerated < 0.1).length);
 
   filteredSamples = computed(() => {
     switch (this.filterType) {
       case 'high_confidence':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.8);
+        return this.samples.filter(s => s.scoreGenerated >= 0.8);
       case 'suspected':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.5 && s.probabilityGenerated < 0.8);
+        return this.samples.filter(s => s.scoreGenerated >= 0.5 && s.scoreGenerated < 0.8);
       case 'uncertain':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.3 && s.probabilityGenerated < 0.5);
+        return this.samples.filter(s => s.scoreGenerated >= 0.3 && s.scoreGenerated < 0.5);
       case 'likely_real':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.1 && s.probabilityGenerated < 0.3);
+        return this.samples.filter(s => s.scoreGenerated >= 0.1 && s.scoreGenerated < 0.3);
       case 'high_confidence_real':
-        return this.samples.filter(s => s.probabilityGenerated < 0.1);
+        return this.samples.filter(s => s.scoreGenerated < 0.1);
       default:
         return this.samples;
     }

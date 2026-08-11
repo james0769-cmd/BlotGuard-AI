@@ -75,12 +75,12 @@ interface ImageItem {
               </span>
               <h2>{{ result()!.fileName }}</h2>
               <!-- 风险等级 -->
-              <mat-chip [highlighted]="result()!.overallScore >= 0.8"
-                        [style.backgroundColor]="getRiskColor(result()!.overallScore)">
-                {{ getRiskLabel(result()!.overallScore) }}
+              <mat-chip [highlighted]="result()!.scoreGenerated >= 0.8"
+                        [style.backgroundColor]="getRiskColor(result()!.scoreGenerated)">
+                {{ getRiskLabel(result()!.scoreGenerated) }}
               </mat-chip>
               <mat-chip>
-                置信度: {{ (result()!.overallConfidence * 100).toFixed(0) }}%
+                置信度: {{ (result()!.scoreGenerated * 100).toFixed(0) }}%
               </mat-chip>
             </div>
             <div class="header-actions">
@@ -439,8 +439,8 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       index: 0,
       label: '第 1 张',
       originalImageUrl: r.originalImageUrl,
-      maskImageUrl: r.maskImageUrl,
-      score: r.overallScore,
+      maskImageUrl: r.maskImageUrl ?? '',
+      score: r.scoreGenerated,
     }];
   });
 
@@ -541,10 +541,12 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       uploadTime: '',
       status: 'completed',
       originalImageUrl: r.original_image_url,
+      maskAvailable: r.mask_available,
       maskImageUrl: r.mask_image_url,
-      overallScore: r.overall_score,
-      overallRisk: r.risk_level,
-      overallConfidence: r.overall_score,
+      localizationMessage: r.localization_message ?? '',
+      scoreGenerated: r.score_generated,
+      riskLevel: r.risk_level,
+      riskLevelIsExperimental: r.risk_level_is_experimental,
       modelVersion: r.model_version,
       processingTime: r.processing_time,
       suspectRegions: r.suspect_regions,
