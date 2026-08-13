@@ -1,4 +1,4 @@
-import { Component, computed, signal, OnInit } from '@angular/core';
+import { Component, computed, signal, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
@@ -9,7 +9,8 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MockDataService, UploadedFile } from '../../core/services/mock-data.service';
+import { Subject, takeUntil } from 'rxjs';
+import { MockDataService } from '../../core/services/mock-data.service';
 import { TaskService } from '../../core/services/task.service';
 
 interface TaskCard {
@@ -19,6 +20,7 @@ interface TaskCard {
   uploadTime: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   overallScore?: number;
+  errorMessage?: string;
   isMock: boolean;
 }
 
@@ -97,6 +99,12 @@ const HISTORY_KEY = 'blotguard_upload_history';
                     <span class="status-big">{{ getStatusLabel(task.status) }}</span>
                   </div>
                 }
+                @if (task.errorMessage) {
+                  <div class="task-error" role="alert">
+                    <mat-icon>error_outline</mat-icon>
+                    <span>{{ task.errorMessage }}</span>
+                  </div>
+                }
                 <div class="time-row">
                   <mat-icon>schedule</mat-icon>
                   <span>{{ task.uploadTime }}</span>
@@ -161,6 +169,13 @@ const HISTORY_KEY = 'blotguard_upload_history';
     .score-value { font-size: 20px; font-weight: 600; }
     .status-big { font-size: 18px; font-weight: 500; color: #6b7280; }
 
+    .task-error {
+      display: flex; align-items: flex-start; gap: 6px;
+      padding: 8px; border-radius: 6px;
+      color: #b91c1c; background: #fef2f2; font-size: 12px;
+      mat-icon { flex: 0 0 auto; font-size: 16px; width: 16px; height: 16px; }
+    }
+
     .meta-row { display: flex; align-items: center; gap: 8px; }
     .status-text { font-size: 12px; color: var(--mat-sys-on-surface-variant); }
 
@@ -172,9 +187,10 @@ const HISTORY_KEY = 'blotguard_upload_history';
     .file-size { margin-left: auto; color: #9ca3af; }
   `],
 })
-export class DetectionListComponent implements OnInit {
+export class DetectionListComponent implements OnInit, OnDestroy {
   riskFilter: RiskFilter = 'all';
   allTasks = signal<TaskCard[]>([]);
+  private readonly destroy$ = new Subject<void>();
 
   constructor(
     private mockData: MockDataService,
@@ -215,43 +231,71 @@ export class DetectionListComponent implements OnInit {
 
     this.allTasks.set(cards);
 
-    // 3. 对真实任务，异步轮询后端获取最新状态
+    // 3. 对真实任务持续轮询，直到任务完成、失败或组件销毁
     for (const card of cards) {
       if (!card.isMock) {
-        this.taskService.getTaskStatus(card.id).subscribe({
-          next: (status) => {
-            const updated = this.allTasks().map(c => {
-              if (c.id === card.id) {
-                return { ...c, status: status.status, overallScore: c.overallScore };
-              }
-              return c;
-            });
-            this.allTasks.set(updated);
-
-            // 如果完成，获取结果中的分数
-            if (status.status === 'completed') {
-              this.taskService.getTaskResult(card.id).subscribe({
-                next: (result) => {
-                  const refreshed = this.allTasks().map(c => {
-                    if (c.id === card.id) {
-                      return {
-                        ...c,
-                        status: 'completed' as const,
-                        overallScore: result.overall_score,
-                      };
-                    }
-                    return c;
-                  });
-                  this.allTasks.set(refreshed);
-                },
-                error: () => { /* 结果获取失败，保持当前状态 */ },
-              });
-            }
-          },
-          error: () => { /* 后端不可达，保持 pending 状态 */ },
-        });
+        this.pollTask(card.id);
       }
     }
+  }
+
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  private pollTask(taskId: string): void {
+    this.taskService.pollTaskStatus(taskId, this.destroy$).subscribe({
+      next: (status) => {
+        this.updateTask(taskId, {
+          status: status.status,
+          errorMessage: status.status === 'failed'
+            ? status.error_message || '检测任务失败'
+            : undefined,
+        });
+
+        if (status.status === 'failed') {
+          this.snackBar.open(status.error_message || '检测任务失败', '关闭', {
+            duration: 6000,
+          });
+          return;
+        }
+
+        if (status.status === 'completed') {
+          this.loadTaskResult(taskId);
+        }
+      },
+      error: (err) => {
+        const message = err?.error?.message || err?.message || '任务状态查询失败，请检查后端服务';
+        this.updateTask(taskId, { errorMessage: message });
+        this.snackBar.open(message, '关闭', { duration: 6000 });
+      },
+    });
+  }
+
+  private loadTaskResult(taskId: string): void {
+    this.taskService.getTaskResult(taskId).pipe(
+      takeUntil(this.destroy$),
+    ).subscribe({
+      next: (result) => {
+        this.updateTask(taskId, {
+          status: 'completed',
+          overallScore: result.score_generated,
+          errorMessage: undefined,
+        });
+      },
+      error: (err) => {
+        const message = err?.error?.message || err?.message || '检测结果加载失败';
+        this.updateTask(taskId, { errorMessage: message });
+        this.snackBar.open(message, '关闭', { duration: 6000 });
+      },
+    });
+  }
+
+  private updateTask(taskId: string, changes: Partial<TaskCard>): void {
+    this.allTasks.update(tasks => tasks.map(task => (
+      task.id === taskId ? { ...task, ...changes } : task
+    )));
   }
 
   highCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'high').length);
