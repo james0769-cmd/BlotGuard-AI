@@ -18,3 +18,6 @@ def test_default_config_resolves_from_project_root():
     assert config.segment.lora_layers is None
     assert config.segment.code_dir == PROJECT_ROOT / "models" / "source"
     assert config.segment.enabled is False
+    assert config.task_retention_days == 30
+    assert config.auth_token_ttl_seconds == 28800
+    assert config.auth_registration_enabled is True

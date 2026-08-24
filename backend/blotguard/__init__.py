@@ -15,6 +15,7 @@ from .core.errors import AppError
 from .inference.provider import InferenceProvider
 from .persistence.repository import AnalysisRepository
 from .services.analysis import AnalysisService
+from .services.auth import AuthService
 from .services.extraction import ExtractionService
 from .services.reporting import ReportService
 from .services.storage import LocalStorage
@@ -39,6 +40,7 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
 
     repository = AnalysisRepository(runtime.database_url)
     repository.init_schema()
+    auth = AuthService(runtime, repository)
     storage = LocalStorage(runtime.storage_root, runtime.max_upload_bytes)
     inference = InferenceProvider(runtime)
     extractor = ExtractionService(runtime, storage)
@@ -54,6 +56,7 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
 
     app.extensions["blotguard_config"] = runtime
     app.extensions["blotguard_repository"] = repository
+    app.extensions["blotguard_auth_service"] = auth
     app.extensions["blotguard_storage"] = storage
     app.extensions["blotguard_inference"] = inference
     app.extensions["blotguard_analysis_service"] = analysis

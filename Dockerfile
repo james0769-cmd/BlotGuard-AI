@@ -22,13 +22,13 @@ RUN python -m pip install --no-cache-dir -r requirements.txt \
          python -m pip install --no-cache-dir \
            --index-url "$TORCH_INDEX_URL" torch==2.6.0 torchvision==0.21.0 \
          && python -m pip install --no-cache-dir \
-           numpy==1.26.4 opencv-python-headless==4.11.0.86; \
+           numpy==1.26.4 opencv-python-headless==4.11.0.86 \
+           scikit-learn==1.7.2 icecream==2.1.8; \
        fi
 
 COPY backend/ backend/
 COPY configs/ configs/
 COPY models/ models/
-COPY model_source/ model_source/
 COPY scripts/ scripts/
 COPY wsgi.py .
 

@@ -68,12 +68,19 @@ GET /api/v1/health/ready
 这些接口用于匹配前端页面草案和 API 字段需求：
 
 ```text
+POST /api/auth/register
 POST /api/auth/login
+GET  /api/auth/me
 POST /api/tasks/upload
 GET  /api/tasks/{task_id}
+DELETE /api/tasks/{task_id}
 GET  /api/tasks/{task_id}/result
 GET  /api/tasks/{task_id}/report
 ```
+
+注册和登录使用数据库用户及密码哈希，不接受不存在的账号或错误密码。成功后返回
+有过期时间的签名 Bearer token；`GET /api/auth/me` 可验证 token。生产环境必须
+使用 `BLOTGUARD_AUTH_SECRET_KEY` 覆盖本地开发密钥。
 
 兼容状态映射：
 

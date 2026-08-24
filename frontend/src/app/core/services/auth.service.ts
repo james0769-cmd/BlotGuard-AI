@@ -42,6 +42,12 @@ export class AuthService {
     );
   }
 
+  register(credentials: LoginRequest): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>('/api/auth/register', credentials).pipe(
+      tap((res) => this.storeSession(res))
+    );
+  }
+
   private storeSession(res: LoginResponse): void {
     localStorage.setItem(this.TOKEN_KEY, res.access_token);
     localStorage.setItem(this.USER_KEY, JSON.stringify(res.user));

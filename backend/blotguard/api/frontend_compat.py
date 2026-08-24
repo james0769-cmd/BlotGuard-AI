@@ -117,6 +117,11 @@ def _conclusion(
     if _frontend_status(task) == "failed":
         error = task.get("error") or {}
         return error.get("message") or "检测失败，请检查文件后重新上传。"
+    if (task.get("summary") or {}).get("not_applicable") and score is None:
+        return (
+            "该文件未通过 Western Blot 图像域预检，系统未执行真伪分析，"
+            "也未生成真假风险分数。"
+        )
     if score is not None:
         return (
             f"实验性五级风险为 {RISK_LEVEL_LABELS[risk_level]}；当前模型对 "
@@ -158,6 +163,9 @@ def _item_result(item: dict[str, Any]) -> dict[str, Any]:
         "height": item["height"],
         "sha256": item["sha256"],
         "prediction": item.get("prediction"),
+        "applicable": item.get("applicable", True),
+        "domain_label": item.get("domain_label"),
+        "domain_message": item.get("domain_message"),
         "score_generated": item.get("score_generated"),
         "score_semantics": item.get("score_semantics"),
         "threshold": item.get("threshold"),
@@ -210,6 +218,13 @@ def _result(task: dict[str, Any]) -> dict[str, Any]:
         "score_generated": score,
         "score_semantics": SCORE_SEMANTICS if score is not None else None,
         "prediction": result_summary.get("prediction"),
+        "applicable": score is not None,
+        "domain_label": (
+            "western_blot" if score is not None else "non_western_blot"
+        ),
+        "domain_message": (
+            first_item.get("domain_message") if first_item else None
+        ),
         "threshold": model.get("threshold"),
         "overall_risk": risk_level,
         "risk_level": risk_level,
@@ -241,18 +256,41 @@ def _full_task(task_id: str) -> dict[str, Any]:
     return repository.task_detail(task_id, include_paths=True)
 
 
-@frontend_compat.post("/auth/login")
-def mock_login():
+def _credentials() -> tuple[str, str]:
     body = request.get_json(silent=True) or {}
-    username = str(body.get("username") or "mock-user")
-    return {
-        "access_token": "mock-access-token",
-        "user": {
-            "id": 1,
-            "username": username,
-            "role": "developer",
-        },
-    }
+    return str(body.get("username") or ""), str(body.get("password") or "")
+
+
+def _bearer_token() -> str:
+    authorization = request.headers.get("Authorization", "").strip()
+    scheme, separator, token = authorization.partition(" ")
+    if not separator or scheme.lower() != "bearer" or not token.strip():
+        raise AppError(
+            "AUTHENTICATION_REQUIRED",
+            "A Bearer access token is required",
+            401,
+        )
+    return token.strip()
+
+
+@frontend_compat.post("/auth/register")
+def register():
+    username, password = _credentials()
+    auth = current_app.extensions["blotguard_auth_service"]
+    return auth.register(username, password), 201
+
+
+@frontend_compat.post("/auth/login")
+def login():
+    username, password = _credentials()
+    auth = current_app.extensions["blotguard_auth_service"]
+    return auth.login(username, password)
+
+
+@frontend_compat.get("/auth/me")
+def current_user():
+    auth = current_app.extensions["blotguard_auth_service"]
+    return {"user": auth.authenticate(_bearer_token())}
 
 
 @frontend_compat.post("/tasks/upload")
@@ -276,9 +314,25 @@ def upload_task():
     return _summary(_full_task(task["task_id"])), 201
 
 
+@frontend_compat.get("/tasks")
+def list_tasks():
+    limit = request.args.get("limit", default=200, type=int)
+    if limit is None or limit <= 0 or limit > 500:
+        raise AppError("INVALID_LIMIT", "limit must be between 1 and 500", 400)
+    service = current_app.extensions["blotguard_analysis_service"]
+    return {"tasks": [_summary(task) for task in service.list(limit=limit)]}
+
+
 @frontend_compat.get("/tasks/<task_id>")
 def get_task(task_id: str):
     return _summary(_full_task(task_id))
+
+
+@frontend_compat.delete("/tasks/<task_id>")
+def delete_task(task_id: str):
+    service = current_app.extensions["blotguard_analysis_service"]
+    service.delete(task_id)
+    return "", 204
 
 
 @frontend_compat.get("/tasks/<task_id>/result")

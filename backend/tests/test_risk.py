@@ -14,3 +14,24 @@ def test_experimental_five_level_boundaries():
     assert risk_level_for_score(b2) == "high"
     assert risk_level_for_score(b3) == "very_high"
     assert risk_level_for_score(1.0) == "very_high"
+
+
+def test_frontend_boundaries_stay_identical_to_backend():
+    source = (
+        Path(__file__).parents[2]
+        / "frontend/src/app/core/risk-level.ts"
+    ).read_text(encoding="utf-8")
+    frontend = {
+        name: float(value)
+        for name, value in re.findall(
+            r"(low|medium|high|veryHigh):\s*([0-9.]+)", source
+        )
+    }
+    assert (
+        frontend["low"],
+        frontend["medium"],
+        frontend["high"],
+        frontend["veryHigh"],
+    ) == RISK_LEVEL_BOUNDARIES
+from pathlib import Path
+import re

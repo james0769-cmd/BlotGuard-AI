@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, signal, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -18,15 +18,24 @@ import {
   SuspectRegion,
 } from '../../core/services/mock-data.service';
 import { ReportService } from '../../core/services/report.service';
-import { TaskService, TaskResult } from '../../core/services/task.service';
+import { RiskLevel, TaskService, TaskResult } from '../../core/services/task.service';
+import { riskBackground, riskForeground, riskLabel } from '../../core/risk-level';
 
 /** 多图任务中每张图片的展示数据 */
 interface ImageItem {
+  id: string;
   index: number;
   label: string;
+  sourceName: string;
+  pageNumber: number | null;
   originalImageUrl: string;
-  maskImageUrl: string;
-  score?: number;
+  maskAvailable: boolean;
+  maskImageUrl: string | null;
+  localizationMessage: string;
+  score: number | null;
+  riskLevel: RiskLevel | null;
+  applicable: boolean;
+  domainMessage: string;
 }
 
 /**
@@ -62,6 +71,15 @@ interface ImageItem {
         <mat-spinner diameter="48"></mat-spinner>
         <p>正在加载检测结果...</p>
       </div>
+    } @else if (errorMessage()) {
+      <div class="failure-state" role="alert">
+        <mat-icon>error_outline</mat-icon>
+        <h2>该任务无法完成分析</h2>
+        <p>{{ errorMessage() }}</p>
+        <button mat-raised-button color="primary" (click)="goToWorkspace()">
+          返回工作台重新上传
+        </button>
+      </div>
     } @else if (result()) {
       <div class="detail-page">
         <!-- === 顶部信息栏 === -->
@@ -75,13 +93,17 @@ interface ImageItem {
               </span>
               <h2>{{ result()!.fileName }}</h2>
               <!-- 风险等级 -->
-              <mat-chip [highlighted]="result()!.scoreGenerated >= 0.8"
-                        [style.backgroundColor]="getRiskColor(result()!.scoreGenerated)">
-                {{ getRiskLabel(result()!.scoreGenerated) }}
-              </mat-chip>
-              <mat-chip>
-                置信度: {{ (result()!.scoreGenerated * 100).toFixed(0) }}%
-              </mat-chip>
+              @if (currentImage().applicable) {
+                <mat-chip [highlighted]="currentImage().riskLevel === 'very_high'"
+                          [style.backgroundColor]="getRiskColor(currentImage().riskLevel)">
+                  {{ getRiskLabel(currentImage().riskLevel) }}
+                </mat-chip>
+                <mat-chip>
+                  当前图风险分数: {{ ((currentImage().score ?? result()!.scoreGenerated ?? 0) * 100).toFixed(1) }}%
+                </mat-chip>
+              } @else {
+                <mat-chip class="not-applicable-chip">非 Western Blot · 不适用</mat-chip>
+              }
             </div>
             <div class="header-actions">
               @if (imageItems().length > 1) {
@@ -122,6 +144,12 @@ interface ImageItem {
               <mat-icon>model_training</mat-icon>
               {{ shortModelVersion() }}
             </span>
+            @if (currentImage().applicable) {
+              <span class="experimental-meta">
+                <mat-icon>science</mat-icon>
+                实验性五级风险 · DDPM/Pix2Pix 待改进
+              </span>
+            }
           </div>
           <!-- 图片切换器（多图时显示） -->
           @if (imageItems().length > 1) {
@@ -132,7 +160,7 @@ interface ImageItem {
                 <mat-icon>chevron_left</mat-icon>
               </button>
               <div class="thumbnail-strip">
-                @for (item of imageItems(); track item.index) {
+                @for (item of imageItems(); track item.id) {
                   <div class="thumbnail-item"
                        [class.active]="selectedImageIndex() === item.index"
                        (click)="selectImage(item.index)">
@@ -140,7 +168,7 @@ interface ImageItem {
                     <span class="thumb-label">{{ item.label }}</span>
                     @if (item.score != null) {
                       <span class="thumb-score"
-                            [style.color]="getScoreColor(item.score)">
+                            [style.color]="getScoreColor(item.riskLevel)">
                         {{ (item.score * 100).toFixed(0) }}%
                       </span>
                     }
@@ -162,31 +190,55 @@ interface ImageItem {
             <app-canvas-viewer
               #canvasViewer
               [originalImageUrl]="currentImage().originalImageUrl"
-              [maskImageUrl]="currentImage().maskImageUrl"
-              [hasMask]="!!currentImage().maskImageUrl"
+              [maskImageUrl]="currentImage().maskImageUrl ?? ''"
+              [hasMask]="currentImage().maskAvailable"
               [brightness]="brightness()"
               [contrast]="contrast()">
             </app-canvas-viewer>
           </div>
 
           <aside class="sidebar-section">
-            <app-forensic-toolbar
-              [hasMask]="!!currentImage().maskImageUrl"
-              (brightnessChange)="brightness.set($event)"
-              (contrastChange)="contrast.set($event)"
-              (maskOpacityChange)="onMaskOpacityChange($event)"
-              (reset)="canvasViewer.resetView()">
-            </app-forensic-toolbar>
+            @if (!currentImage().applicable) {
+              <section class="domain-rejection" role="status">
+                <mat-icon>image_not_supported</mat-icon>
+                <div>
+                  <strong>该图片不适用于真伪检测</strong>
+                  <p>{{ currentImage().domainMessage }}</p>
+                  <p>系统没有生成真假结论、风险等级或风险分数。</p>
+                </div>
+              </section>
+            } @else {
+              <app-forensic-toolbar
+                [hasMask]="currentImage().maskAvailable"
+                (brightnessChange)="brightness.set($event)"
+                (contrastChange)="contrast.set($event)"
+                (maskOpacityChange)="onMaskOpacityChange($event)"
+                (reset)="canvasViewer.resetView()">
+              </app-forensic-toolbar>
+            }
 
-            <app-suspect-list
-              [regions]="result()!.suspectRegions"
-              [selectedId]="selectedRegionId()"
-              (regionSelected)="onRegionSelected($event)">
-            </app-suspect-list>
+            @if (currentImage().applicable && currentImage().maskAvailable) {
+              <app-suspect-list
+                [regions]="result()!.suspectRegions"
+                [selectedId]="selectedRegionId()"
+                (regionSelected)="onRegionSelected($event)">
+              </app-suspect-list>
+            } @else if (currentImage().applicable) {
+              <section class="localization-note">
+                <mat-icon>center_focus_weak</mat-icon>
+                <div>
+                  <strong>本次为整图风险判断</strong>
+                  <p>{{ currentImage().localizationMessage }}</p>
+                  <p>当前版本不会生成掩码或可疑区域列表，风险分数针对整张候选图像。</p>
+                </div>
+              </section>
+            }
 
-            <app-probability-chart
-              [probabilities]="result()!.modelProbabilities">
-            </app-probability-chart>
+            @if (result()!.modelProbabilities.length > 0) {
+              <app-probability-chart
+                [probabilities]="result()!.modelProbabilities">
+              </app-probability-chart>
+            }
           </aside>
         </div>
       </div>
@@ -203,6 +255,15 @@ interface ImageItem {
       color: #6b7280;
       animation: fadeIn 0.4s ease-out;
     }
+    .failure-state {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 60vh; padding: 32px; text-align: center; color: #374151;
+    }
+    .failure-state > mat-icon {
+      width: 56px; height: 56px; font-size: 56px; color: #d32f2f; margin-bottom: 12px;
+    }
+    .failure-state h2 { margin: 0 0 10px; }
+    .failure-state p { max-width: 680px; margin: 0 0 22px; color: #6b7280; }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(12px); }
       to { opacity: 1; transform: translateY(0); }
@@ -315,6 +376,11 @@ interface ImageItem {
       height: 15px;
       color: #9ca3af;
     }
+    .experimental-meta {
+      display: flex; align-items: center; gap: 5px; color: #92400e;
+      background: #fffbeb; border-radius: 5px; padding: 3px 8px; font-size: 12px;
+    }
+    .experimental-meta mat-icon { width: 15px; height: 15px; font-size: 15px; }
 
     /* ====== 图片切换器 ====== */
     .image-switcher {
@@ -399,6 +465,21 @@ interface ImageItem {
       padding: 16px;
       background: #fff;
     }
+    .localization-note {
+      display: flex; gap: 10px; padding: 14px; border-radius: 8px;
+      color: #374151; background: #f3f7fb; border: 1px solid #dbe7f2;
+    }
+    .localization-note > mat-icon { color: #1976d2; flex: 0 0 auto; }
+    .localization-note strong { display: block; margin-bottom: 5px; }
+    .localization-note p { margin: 3px 0 0; font-size: 12px; line-height: 1.5; color: #64748b; }
+    .not-applicable-chip { background: #fef3c7; color: #92400e; }
+    .domain-rejection {
+      display: flex; gap: 10px; padding: 16px; border-radius: 8px;
+      color: #78350f; background: #fffbeb; border: 1px solid #fde68a;
+    }
+    .domain-rejection > mat-icon { color: #d97706; flex: 0 0 auto; }
+    .domain-rejection strong { display: block; margin-bottom: 5px; }
+    .domain-rejection p { margin: 4px 0 0; font-size: 12px; line-height: 1.5; }
   `],
 })
 export class DetectionDetailComponent implements OnInit, OnDestroy {
@@ -406,6 +487,7 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
 
   result = signal<DetectionResult | null>(null);
   loading = signal(true);
+  errorMessage = signal('');
   isSample = signal(false);
   brightness = signal(100);
   contrast = signal(100);
@@ -433,15 +515,21 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
   imageItems = computed<ImageItem[]>(() => {
     const r = this.result();
     if (!r) return [];
-    // TODO: 后续从后端返回的 items 数组构建多图列表
-    // 当前仅支持单图，多图字段为未来扩展
-    return [{
-      index: 0,
-      label: '第 1 张',
-      originalImageUrl: r.originalImageUrl,
-      maskImageUrl: r.maskImageUrl ?? '',
-      score: r.scoreGenerated,
-    }];
+    return r.images.map((image, index) => ({
+      id: image.id,
+      index,
+      label: image.pageNumber == null ? `第 ${index + 1} 张` : `第 ${image.pageNumber} 页`,
+      sourceName: image.sourceName,
+      pageNumber: image.pageNumber,
+      originalImageUrl: image.originalImageUrl,
+      maskAvailable: image.maskAvailable,
+      maskImageUrl: image.maskImageUrl,
+      localizationMessage: image.localizationMessage,
+      score: image.scoreGenerated,
+      riskLevel: image.riskLevel,
+      applicable: image.applicable,
+      domainMessage: image.domainMessage,
+    }));
   });
 
   /** 当前选中图片 */
@@ -481,6 +569,7 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
     private taskService: TaskService,
     private reportService: ReportService,
     private snackBar: MatSnackBar,
+    private router: Router,
   ) {}
 
   ngOnInit(): void {
@@ -507,17 +596,19 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
             error: (err) => {
               this.loading.set(false);
               const message = err?.error?.message || err?.message || '获取检测结果失败';
+              this.errorMessage.set(message);
               this.snackBar.open(message, '关闭', { duration: 6000 });
             },
           });
         } else if (status.status === 'failed') {
           this.loading.set(false);
-          this.snackBar.open(status.error_message || '检测任务失败', '关闭', { duration: 6000 });
+          this.errorMessage.set(status.error_message || '检测任务失败');
         }
       },
       error: (err) => {
         this.loading.set(false);
         const message = err?.error?.message || err?.message || '轮询任务状态失败，请检查网络连接';
+        this.errorMessage.set(message);
         this.snackBar.open(message, '关闭', { duration: 6000 });
       },
     });
@@ -535,6 +626,19 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
   }
 
   private mapTaskResult(taskId: string, r: TaskResult): DetectionResult {
+    const images = (r.items || []).map((item, index) => ({
+      id: item.item_id || `${taskId}-${index}`,
+      sourceName: item.source_name,
+      pageNumber: item.page_number,
+      originalImageUrl: item.original_image_url,
+      maskAvailable: item.mask_available,
+      maskImageUrl: item.mask_image_url,
+      localizationMessage: item.localization_message ?? '当前版本仅提供整图风险判断',
+      scoreGenerated: item.score_generated,
+      riskLevel: item.risk_level,
+      applicable: item.applicable,
+      domainMessage: item.domain_message ?? '该图片未通过 Western Blot 图像域预检',
+    }));
     return {
       id: taskId,
       fileName: r.filename,
@@ -543,15 +647,34 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       originalImageUrl: r.original_image_url,
       maskAvailable: r.mask_available,
       maskImageUrl: r.mask_image_url,
-      localizationMessage: r.localization_message ?? '',
+      localizationMessage: r.localization_message ?? '当前版本不提供区域定位',
       scoreGenerated: r.score_generated,
       riskLevel: r.risk_level,
+      applicable: r.applicable,
+      domainMessage: r.domain_message ?? '',
       riskLevelIsExperimental: r.risk_level_is_experimental,
-      modelVersion: r.model_version,
-      processingTime: r.processing_time,
+      modelVersion: r.model_version ?? '',
+      processingTime: r.processing_time ?? 0,
       suspectRegions: r.suspect_regions,
       modelProbabilities: r.model_probabilities,
+      images: images.length ? images : [{
+        id: taskId,
+        sourceName: r.filename,
+        pageNumber: null,
+        originalImageUrl: r.original_image_url,
+        maskAvailable: r.mask_available,
+        maskImageUrl: r.mask_image_url,
+        localizationMessage: r.localization_message ?? '当前版本仅提供整图风险判断',
+        scoreGenerated: r.score_generated,
+        riskLevel: r.risk_level,
+        applicable: r.applicable,
+        domainMessage: r.domain_message ?? '该图片未通过 Western Blot 图像域预检',
+      }],
     };
+  }
+
+  goToWorkspace(): void {
+    this.router.navigate(['/workspace']);
   }
 
   onRegionSelected(region: SuspectRegion): void {
@@ -580,30 +703,15 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  getRiskColor(score?: number): string {
-    if (score == null) return '#f5f5f5';
-    if (score >= 0.8) return '#ffcdd2';
-    if (score >= 0.5) return '#fff3e0';
-    if (score >= 0.3) return '#fff9c4';
-    if (score >= 0.1) return '#c8e6c9';
-    return '#e8f5e9';
+  getRiskColor(level?: RiskLevel | null): string {
+    return riskBackground(level ?? undefined);
   }
 
-  getRiskLabel(score?: number): string {
-    if (score == null) return '未知';
-    if (score >= 0.8) return '高置信生成';
-    if (score >= 0.5) return '高疑似生成';
-    if (score >= 0.3) return '不确定';
-    if (score >= 0.1) return '高疑似真实';
-    return '高置信真实';
+  getRiskLabel(level?: RiskLevel | null): string {
+    return riskLabel(level ?? undefined);
   }
 
-  getScoreColor(score?: number): string {
-    if (score == null) return '#9e9e9e';
-    if (score >= 0.8) return '#d32f2f';
-    if (score >= 0.5) return '#f57c00';
-    if (score >= 0.3) return '#fbc02d';
-    if (score >= 0.1) return '#66bb6a';
-    return '#388e3c';
+  getScoreColor(level?: RiskLevel | null): string {
+    return riskForeground(level ?? undefined);
   }
 }

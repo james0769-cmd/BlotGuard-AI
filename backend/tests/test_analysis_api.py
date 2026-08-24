@@ -39,6 +39,25 @@ def _pdf_with_images(png_bytes: bytes, count: int = 2) -> BytesIO:
     return document
 
 
+def _color_decoration_png() -> bytes:
+    stream = BytesIO()
+    Image.new("RGB", (640, 480), color=(214, 238, 248)).save(
+        stream, format="PNG"
+    )
+    return stream.getvalue()
+
+
+def _unrelated_color_image() -> bytes:
+    stream = BytesIO()
+    image = Image.new("RGB", (640, 360), color=(205, 225, 245))
+    for y in range(180, 360):
+        color = (230, max(40, 180 - (y - 180) // 2), 35)
+        for x in range(640):
+            image.putpixel((x, y), color)
+    image.save(stream, format="PNG")
+    return stream.getvalue()
+
+
 def test_png_analysis_report_artifact_and_delete(client, png_bytes):
     response = client.post(
         "/api/v1/analyses",
@@ -155,6 +174,75 @@ def test_frontend_compat_returns_all_pdf_images(client, png_bytes):
     assert len(PdfReader(BytesIO(report.data)).pages) >= 3
 
 
+def test_pdf_decorations_are_not_sent_to_detector(client):
+    response = client.post(
+        "/api/tasks/upload",
+        data={
+            "file": (
+                _pdf_with_images(_color_decoration_png(), count=1),
+                "decorative-paper.pdf",
+            )
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 201
+    task = response.get_json()
+    assert task["status"] == "failed"
+    assert "Western Blot" in task["error_message"]
+
+
+def test_unrelated_image_is_not_given_an_authenticity_score(client):
+    response = client.post(
+        "/api/tasks/upload",
+        data={
+            "file": (BytesIO(_unrelated_color_image()), "landscape.png")
+        },
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 201
+    task_id = response.get_json()["task_id"]
+    result = client.get(f"/api/tasks/{task_id}/result").get_json()
+
+    assert result["status"] == "completed"
+    assert result["applicable"] is False
+    assert result["prediction"] == "not_applicable"
+    assert result["domain_label"] == "non_western_blot"
+    assert result["score_generated"] is None
+    assert result["risk_level"] is None
+    assert result["items"][0]["applicable"] is False
+    assert "未执行真伪" in result["conclusion"]
+
+
+def test_mixed_document_only_scores_western_blot_images(client, png_bytes):
+    document = BytesIO()
+    with zipfile.ZipFile(document, "w") as archive:
+        archive.writestr("[Content_Types].xml", "<Types/>")
+        archive.writestr("word/document.xml", "<document/>")
+        archive.writestr("word/media/blot.png", png_bytes)
+        archive.writestr(
+            "word/media/landscape.png", _unrelated_color_image()
+        )
+    document.seek(0)
+
+    response = client.post(
+        "/api/tasks/upload",
+        data={"file": (document, "mixed.docx")},
+        content_type="multipart/form-data",
+    )
+
+    assert response.status_code == 201
+    task_id = response.get_json()["task_id"]
+    result = client.get(f"/api/tasks/{task_id}/result").get_json()
+
+    assert result["image_count"] == 2
+    assert result["applicable"] is True
+    assert result["score_generated"] is not None
+    assert [item["applicable"] for item in result["items"]] == [True, False]
+    assert result["result_summary"]["not_applicable"] == 1
+
+
 def test_rejects_unsupported_extension(client, png_bytes):
     response = client.post(
         "/api/v1/analyses",
@@ -196,9 +284,15 @@ def test_rejects_localization_until_model_is_confirmed(client, png_bytes):
 
 
 def test_frontend_compat_login_upload_result_report(client, png_bytes):
+    registered = client.post(
+        "/api/auth/register",
+        json={"username": "zhao", "password": "correct-password"},
+    )
+    assert registered.status_code == 201
+
     login = client.post(
         "/api/auth/login",
-        json={"username": "zhao", "password": "anything"},
+        json={"username": "zhao", "password": "correct-password"},
     )
     assert login.status_code == 200
     assert login.get_json()["user"]["username"] == "zhao"

@@ -7,7 +7,7 @@ from io import BytesIO
 from pathlib import Path
 import zipfile
 
-from PIL import Image, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageFilter, ImageOps, ImageStat, UnidentifiedImageError
 from pypdf import PdfReader
 
 from backend.blotguard.core.config import RuntimeConfig
@@ -18,6 +18,9 @@ from .storage import LocalStorage
 
 class ExtractionService:
     IMAGE_EXTENSIONS = {"jpg", "jpeg", "jfif", "png", "tif", "tiff"}
+    PDF_MAX_MEAN_SATURATION = 0.08
+    PDF_MAX_EDGE_DENSITY = 0.08
+    PDF_MIN_CANDIDATE_PIXELS = 128 * 128
 
     def __init__(self, config: RuntimeConfig, storage: LocalStorage):
         self.config = config
@@ -97,6 +100,13 @@ class ExtractionService:
             )
 
         if not images:
+            if extension == "pdf":
+                raise AppError(
+                    "NO_WESTERN_BLOT_CANDIDATES",
+                    "PDF 中未找到可可靠分析的 Western Blot 候选图像。"
+                    "请裁剪目标条带区域后以 PNG/JPG 上传。",
+                    422,
+                )
             raise AppError(
                 "NO_ANALYZABLE_IMAGES",
                 "No analyzable raster images were found in the file",
@@ -151,8 +161,38 @@ class ExtractionService:
                     if exc.code in {"INVALID_IMAGE", "IMAGE_TOO_SMALL"}:
                         continue
                     raise
+                image_path = self.storage.absolute(result.path)
+                if not self._is_pdf_candidate(image_path):
+                    image_path.unlink(missing_ok=True)
+                    continue
                 results.append(result)
         return results
+
+    def _is_pdf_candidate(self, image_path: Path) -> bool:
+        """Reject common PDF decorations before running the blot detector.
+
+        The detector is trained on mostly grayscale Western Blot crops. PDF
+        backgrounds, icons, logos, and line-art charts otherwise produce
+        meaningless high scores because they are outside that input domain.
+        This is deliberately a conservative candidate filter, not a claim
+        that the remaining image is a Western Blot.
+        """
+        with Image.open(image_path) as image:
+            rgb = image.convert("RGB")
+            width, height = rgb.size
+            if width * height < self.PDF_MIN_CANDIDATE_PIXELS:
+                return False
+
+            saturation = ImageStat.Stat(
+                rgb.convert("HSV").getchannel("S")
+            ).mean[0] / 255
+            if saturation > self.PDF_MAX_MEAN_SATURATION:
+                return False
+
+            gray = ImageOps.grayscale(rgb)
+            edge_histogram = gray.filter(ImageFilter.FIND_EDGES).histogram()
+            edge_density = sum(edge_histogram[60:]) / (width * height)
+            return edge_density <= self.PDF_MAX_EDGE_DENSITY
 
     def _extract_docx(
         self, source: Path, output_dir: Path

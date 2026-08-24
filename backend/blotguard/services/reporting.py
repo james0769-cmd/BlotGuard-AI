@@ -146,12 +146,12 @@ class ReportService:
         score = summary.get("score_generated")
         risk_level = summary.get("risk_level")
         rows = [
-            ["图片总数", "疑似 AI 生成", "疑似真实", "分析失败"],
+            ["图片总数", "疑似 AI 生成", "疑似真实", "非 Blot/分析失败"],
             [
                 str(summary["total"]),
                 str(summary["generated"]),
                 str(summary["original"]),
-                str(summary["failed"]),
+                str(summary.get("not_applicable", 0) + summary["failed"]),
             ],
             [
                 "文件级判断",
@@ -160,7 +160,7 @@ class ReportService:
                     if summary.get("prediction") == "generated"
                     else "疑似真实"
                     if summary.get("prediction") == "original"
-                    else "无有效结果"
+                    else "非 Western Blot / 无有效结果"
                 ),
                 "最高风险分数",
                 f"{score:.4f}" if score is not None else "-",
@@ -189,7 +189,7 @@ class ReportService:
                     if item.get("prediction") == "generated"
                     else "疑似真实"
                     if item.get("prediction") == "original"
-                    else "分析失败"
+                    else "非 Western Blot，不适用"
                 ),
             ],
             [

@@ -1,7 +1,7 @@
 from dataclasses import replace
 from io import BytesIO
 
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFilter
 import pytest
 
 from backend.blotguard import create_app
@@ -41,7 +41,10 @@ def client(app):
 @pytest.fixture()
 def png_bytes():
     stream = BytesIO()
-    Image.new("RGB", (320, 180), color=(230, 230, 230)).save(
-        stream, format="PNG"
-    )
+    image = Image.new("RGB", (320, 180), color=(230, 230, 230))
+    draw = ImageDraw.Draw(image)
+    for y in (45, 90, 135):
+        draw.rounded_rectangle((35, y, 135, y + 14), radius=6, fill=(45, 45, 45))
+        draw.rounded_rectangle((180, y, 285, y + 14), radius=6, fill=(60, 60, 60))
+    image.filter(ImageFilter.GaussianBlur(radius=3)).save(stream, format="PNG")
     return stream.getvalue()

@@ -110,21 +110,54 @@ paths:
           $ref: "#/components/responses/Error"
   /api/auth/login:
     post:
-      operationId: frontendMockLogin
-      description: Frontend v0.1 compatibility mock login.
+      operationId: login
+      description: Verify a database user and return a signed access token.
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/LoginRequest"
       responses:
         "200":
-          description: Mock login response
+          description: Authenticated session
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/LoginResponse"
+        "401":
+          $ref: "#/components/responses/FrontendError"
+  /api/auth/register:
+    post:
+      operationId: register
+      description: Create a local user with a hashed password.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "201":
+          description: Registered and authenticated session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          $ref: "#/components/responses/FrontendError"
+        "409":
+          $ref: "#/components/responses/FrontendError"
+  /api/auth/me:
+    get:
+      operationId: currentUser
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current authenticated user
+        "401":
+          $ref: "#/components/responses/FrontendError"
   /api/tasks/upload:
     post:
       operationId: frontendUploadTask
@@ -168,6 +201,16 @@ paths:
                 $ref: "#/components/schemas/FrontendTask"
         "404":
           $ref: "#/components/responses/FrontendError"
+    delete:
+      operationId: frontendDeleteTask
+      description: Delete a terminal task, database rows, and stored files.
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          $ref: "#/components/responses/FrontendError"
+        "409":
+          $ref: "#/components/responses/FrontendError"
   /api/tasks/{task_id}/result:
     parameters:
       - $ref: "#/components/parameters/TaskId"
@@ -202,6 +245,10 @@ paths:
         "409":
           $ref: "#/components/responses/FrontendError"
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
   parameters:
     TaskId:
       name: task_id
@@ -226,6 +273,7 @@ components:
   schemas:
     LoginRequest:
       type: object
+      required: [username, password]
       properties:
         username:
           type: string
@@ -233,10 +281,16 @@ components:
           type: string
     LoginResponse:
       type: object
-      required: [access_token, user]
+      required: [access_token, token_type, expires_in, user]
       properties:
         access_token:
           type: string
+        token_type:
+          type: string
+          const: Bearer
+        expires_in:
+          type: integer
+          minimum: 1
         user:
           type: object
           required: [id, username, role]

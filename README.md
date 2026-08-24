@@ -17,7 +17,8 @@ Flask 为 HTTP 边界，以 SQLAlchemy 保存任务元数据，以任务隔离�
 - SQLite 本地开发及 MySQL 部署配置。
 - Flask、Gunicorn、Docker Compose 和 NGINX 配置。
 - OpenAPI 3.1 接口文档和端到端测试。
-- 前端 v0.1 草案兼容接口：`/api/auth/login`、`/api/tasks/upload`、
+- 数据库用户、密码哈希、限时签名令牌和真实登录/注册接口。
+- 前端 v0.1 草案兼容接口：`/api/auth/register`、`/api/auth/login`、`/api/tasks/upload`、
   `/api/tasks/<task_id>`、`/api/tasks/<task_id>/result`、
   `/api/tasks/<task_id>/report`。
 
@@ -154,6 +155,16 @@ export BLOTGUARD_DATABASE_URL='mysql+pymysql://blotguard:blotguard@127.0.0.1:330
 图片和报告不存数据库，而是保存在 `var/tasks/<task_id>/`。MongoDB 当前没有
 独立数据职责，因此未引入；如指导老师要求使用，应先明确它保存的唯一数据类型，
 避免与 MySQL 重复存储。
+
+终态任务默认保留 30 天。手动清理过期任务：
+
+```bash
+python scripts/cleanup_tasks.py
+python scripts/cleanup_tasks.py --older-than-days 7 --limit 100
+```
+
+本地默认允许注册。生产环境应设置 `BLOTGUARD_AUTH_SECRET_KEY`，并可通过
+`BLOTGUARD_AUTH_REGISTRATION_ENABLED=false` 关闭公开注册。
 
 ## 测试
 

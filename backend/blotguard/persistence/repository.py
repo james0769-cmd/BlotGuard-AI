@@ -6,7 +6,8 @@ from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import create_engine, delete, select
+from sqlalchemy import create_engine, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload, sessionmaker
 
 from backend.blotguard.domain.contracts import (
@@ -23,8 +24,8 @@ from backend.blotguard.domain.risk import (
     RISK_LEVEL_VERSION,
     risk_level_for_score,
 )
-from backend.blotguard.core.errors import NotFoundError
-from .models import AnalysisItem, AnalysisTask, Artifact, Base
+from backend.blotguard.core.errors import AppError, NotFoundError
+from .models import AnalysisItem, AnalysisTask, Artifact, Base, User
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -59,6 +60,52 @@ class AnalysisRepository:
             return True
         except Exception:
             return False
+
+    def create_user(
+        self, username: str, password_hash: str, role: str = "developer"
+    ) -> dict[str, Any]:
+        try:
+            with self.sessions.begin() as session:
+                user = User(
+                    username=username,
+                    password_hash=password_hash,
+                    role=role,
+                )
+                session.add(user)
+                session.flush()
+                return self._serialize_user(user)
+        except IntegrityError as exc:
+            raise AppError(
+                "USERNAME_TAKEN",
+                "Username is already registered",
+                409,
+            ) from exc
+
+    def get_user_by_username(
+        self, username: str, *, include_password_hash: bool = False
+    ) -> dict[str, Any] | None:
+        with self.sessions() as session:
+            user = session.scalar(select(User).where(User.username == username))
+            if user is None:
+                return None
+            result = self._serialize_user(user)
+            if include_password_hash:
+                result["password_hash"] = user.password_hash
+            return result
+
+    def get_user_by_id(self, user_id: int) -> dict[str, Any] | None:
+        with self.sessions() as session:
+            user = session.get(User, user_id)
+            return None if user is None else self._serialize_user(user)
+
+    @staticmethod
+    def _serialize_user(user: User) -> dict[str, Any]:
+        return {
+            "id": user.id,
+            "username": user.username,
+            "role": user.role,
+            "active": user.active,
+        }
 
     def create_task(
         self,
@@ -160,6 +207,22 @@ class AnalysisRepository:
             item.error_code = code
             item.error_message = message
 
+    def record_not_applicable(
+        self, task_id: str, item_id: str, message: str
+    ) -> None:
+        """Persist a domain rejection without inventing an authenticity score."""
+        with self.sessions.begin() as session:
+            task = session.get(AnalysisTask, task_id)
+            item = session.get(AnalysisItem, item_id)
+            if task is None or item is None or item.task_id != task_id:
+                raise NotFoundError("analysis item", item_id)
+            item.status = ItemStatus.SUCCEEDED
+            item.prediction = "not_applicable"
+            item.score_generated = None
+            item.threshold = None
+            item.error_code = "NON_WESTERN_BLOT"
+            item.error_message = message
+
     @staticmethod
     def _set_model(task: AnalysisTask, model: ModelMetadata) -> None:
         task.model_name = model.name
@@ -227,6 +290,26 @@ class AnalysisRepository:
                 raise NotFoundError("analysis task", task_id)
             return self._serialize_task(task, include_paths=include_paths)
 
+    def list_tasks(self, *, limit: int = 200) -> list[dict[str, Any]]:
+        if limit <= 0 or limit > 500:
+            raise ValueError("limit must be between 1 and 500")
+        statement = (
+            select(AnalysisTask)
+            .options(
+                selectinload(AnalysisTask.items).selectinload(
+                    AnalysisItem.artifacts
+                ),
+                selectinload(AnalysisTask.artifacts),
+            )
+            .order_by(AnalysisTask.created_at.desc())
+            .limit(limit)
+        )
+        with self.sessions() as session:
+            return [
+                self._serialize_task(task, include_paths=True)
+                for task in session.scalars(statement)
+            ]
+
     def _serialize_task(
         self, task: AnalysisTask, *, include_paths: bool
     ) -> dict[str, Any]:
@@ -250,6 +333,17 @@ class AnalysisRepository:
                 "height": item.height,
                 "sha256": item.image_sha256,
                 "prediction": item.prediction,
+                "applicable": item.prediction != "not_applicable",
+                "domain_label": (
+                    "non_western_blot"
+                    if item.prediction == "not_applicable"
+                    else "western_blot"
+                ),
+                "domain_message": (
+                    item.error_message
+                    if item.prediction == "not_applicable"
+                    else "输入通过 Western Blot 图像域预检"
+                ),
                 "score_generated": item.score_generated,
                 "score_semantics": (
                     SCORE_SEMANTICS if item.score_generated is not None else None
@@ -345,12 +439,22 @@ class AnalysisRepository:
                 "original": sum(
                     item["prediction"] == "original" for item in items
                 ),
+                "not_applicable": sum(
+                    item["prediction"] == "not_applicable" for item in items
+                ),
                 "score_generated": overall_score,
                 "score_semantics": (
                     SCORE_SEMANTICS if overall_score is not None else None
                 ),
                 "prediction": (
-                    overall_item["prediction"] if overall_item else None
+                    overall_item["prediction"]
+                    if overall_item
+                    else "not_applicable"
+                    if any(
+                        item["prediction"] == "not_applicable"
+                        for item in items
+                    )
+                    else None
                 ),
                 "risk_level": risk_level_for_score(overall_score),
                 "risk_level_semantics": RISK_LEVEL_SEMANTICS,
@@ -412,6 +516,25 @@ class AnalysisRepository:
             task = session.get(AnalysisTask, task_id)
             if task is None:
                 raise NotFoundError("analysis task", task_id)
-            session.execute(
-                delete(AnalysisTask).where(AnalysisTask.id == task_id)
+            session.delete(task)
+
+    def expired_terminal_task_ids(
+        self, completed_before: datetime, *, limit: int = 100
+    ) -> list[str]:
+        terminal = [
+            TaskStatus.SUCCEEDED,
+            TaskStatus.FAILED,
+            TaskStatus.CANCELLED,
+        ]
+        statement = (
+            select(AnalysisTask.id)
+            .where(
+                AnalysisTask.status.in_(terminal),
+                AnalysisTask.completed_at.is_not(None),
+                AnalysisTask.completed_at < completed_before,
             )
+            .order_by(AnalysisTask.completed_at.asc())
+            .limit(limit)
+        )
+        with self.sessions() as session:
+            return list(session.scalars(statement))

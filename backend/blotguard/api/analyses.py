@@ -45,6 +45,15 @@ def create_analysis():
     return task, 202
 
 
+@api.get("/analyses")
+def list_analyses():
+    service = current_app.extensions["blotguard_analysis_service"]
+    limit = request.args.get("limit", default=200, type=int)
+    if limit is None or limit <= 0 or limit > 500:
+        raise AppError("INVALID_LIMIT", "limit must be between 1 and 500", 400)
+    return {"tasks": service.list(limit=limit)}
+
+
 @api.get("/analyses/<task_id>")
 def get_analysis(task_id: str):
     service = current_app.extensions["blotguard_analysis_service"]

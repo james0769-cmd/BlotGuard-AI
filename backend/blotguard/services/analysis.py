@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import BinaryIO
 from uuid import uuid4
@@ -14,6 +15,7 @@ from backend.blotguard.inference.provider import (
     InferenceProvider,
     ModelUnavailableError,
 )
+from backend.blotguard.inference.domain_gate import WesternBlotDomainGate
 from backend.blotguard.persistence.repository import AnalysisRepository
 from .extraction import ExtractionService
 from .reporting import ReportService
@@ -36,6 +38,7 @@ class AnalysisService:
         self.extractor = extractor
         self.inference = inference
         self.reports = reports
+        self.domain_gate = WesternBlotDomainGate()
         self.executor = ThreadPoolExecutor(
             max_workers=config.max_workers,
             thread_name_prefix="blotguard-analysis",
@@ -103,13 +106,27 @@ class AnalysisService:
                 )
 
             self.repository.set_task_status(task_id, TaskStatus.INFERENCING)
-            detector = self.inference.detector()
             success_count = 0
+            detector = None
             for item_id, image in zip(item_ids, images, strict=True):
                 try:
-                    result = detector.predict(self.storage.absolute(image.path))
+                    image_path = self.storage.absolute(image.path)
+                    assessment = self.domain_gate.assess(image_path)
+                    if not assessment.accepted:
+                        self.repository.record_not_applicable(
+                            task_id,
+                            item_id,
+                            assessment.message,
+                        )
+                        success_count += 1
+                        continue
+                    if detector is None:
+                        detector = self.inference.detector()
+                    result = detector.predict(image_path)
                     self.repository.record_detection(task_id, item_id, result)
                     success_count += 1
+                except ModelUnavailableError:
+                    raise
                 except Exception as exc:
                     self.repository.record_item_failure(
                         item_id, "INFERENCE_FAILED", str(exc)
@@ -156,6 +173,9 @@ class AnalysisService:
     def get(self, task_id: str) -> dict:
         return self.repository.task_detail(task_id)
 
+    def list(self, *, limit: int = 200) -> list[dict]:
+        return self.repository.list_tasks(limit=limit)
+
     def delete(self, task_id: str) -> None:
         task = self.repository.task_detail(task_id)
         if task["status"] not in {
@@ -168,5 +188,40 @@ class AnalysisService:
                 "Only completed, failed, or cancelled tasks can be deleted",
                 409,
             )
-        self.repository.delete_task(task_id)
-        self.storage.delete_task(task_id)
+        staged = self.storage.stage_task_delete(task_id)
+        try:
+            self.repository.delete_task(task_id)
+        except Exception:
+            self.storage.rollback_task_delete(staged)
+            raise
+        self.storage.finalize_task_delete(staged)
+
+    def cleanup_expired(
+        self, *, older_than_days: int | None = None, limit: int = 100
+    ) -> dict[str, object]:
+        days = (
+            self.config.task_retention_days
+            if older_than_days is None
+            else older_than_days
+        )
+        if days <= 0:
+            raise ValueError("older_than_days must be positive")
+        if limit <= 0 or limit > 1000:
+            raise ValueError("limit must be between 1 and 1000")
+        cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+        task_ids = self.repository.expired_terminal_task_ids(
+            cutoff, limit=limit
+        )
+        deleted: list[str] = []
+        failed: dict[str, str] = {}
+        for task_id in task_ids:
+            try:
+                self.delete(task_id)
+                deleted.append(task_id)
+            except Exception as exc:
+                failed[task_id] = str(exc)
+        return {
+            "completed_before": cutoff.isoformat().replace("+00:00", "Z"),
+            "deleted": deleted,
+            "failed": failed,
+        }

@@ -53,8 +53,12 @@ class RuntimeConfig:
     allowed_extensions: tuple[str, ...]
     allowed_origins: tuple[str, ...]
     report_title: str
+    task_retention_days: int
     inference_mode: str
     device: str
+    auth_secret_key: str
+    auth_token_ttl_seconds: int
+    auth_registration_enabled: bool
     detector: ModelConfig
     localizer: ModelConfig
 
@@ -101,6 +105,18 @@ def _model_config(project_root: Path, values: dict[str, Any]) -> ModelConfig:
     )
 
 
+def _environment_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    normalized = raw.strip().lower()
+    if normalized in {"1", "true", "yes", "on"}:
+        return True
+    if normalized in {"0", "false", "no", "off"}:
+        return False
+    raise ValueError(f"{name} must be true or false")
+
+
 def load_runtime_config(config_path: str | Path | None = None) -> RuntimeConfig:
     path = Path(
         config_path or os.environ.get("BLOTGUARD_CONFIG", DEFAULT_CONFIG_PATH)
@@ -110,6 +126,7 @@ def load_runtime_config(config_path: str | Path | None = None) -> RuntimeConfig:
 
     project_root = _resolve_path(path.parent, values.get("project_root", ".."))
     app = values["app"]
+    auth = values.get("auth", {})
     inference = values["inference"]
 
     database_value = os.environ.get(
@@ -134,11 +151,32 @@ def load_runtime_config(config_path: str | Path | None = None) -> RuntimeConfig:
     device = os.environ.get(
         "BLOTGUARD_DEVICE", str(inference.get("device", "auto"))
     )
+    auth_secret_key = os.environ.get(
+        "BLOTGUARD_AUTH_SECRET_KEY",
+        str(auth.get("secret_key", "blotguard-local-development-only")),
+    )
+    auth_token_ttl_seconds = int(
+        os.environ.get(
+            "BLOTGUARD_AUTH_TOKEN_TTL_SECONDS",
+            str(auth.get("token_ttl_seconds", 28800)),
+        )
+    )
+    auth_registration_enabled = _environment_bool(
+        "BLOTGUARD_AUTH_REGISTRATION_ENABLED",
+        bool(auth.get("registration_enabled", True)),
+    )
+    task_retention_days = int(app.get("task_retention_days", 30))
 
     if execution_mode not in {"inline", "thread"}:
         raise ValueError("execution_mode must be 'inline' or 'thread'")
     if inference_mode not in {"real", "mock"}:
         raise ValueError("inference mode must be 'real' or 'mock'")
+    if not auth_secret_key.strip():
+        raise ValueError("auth secret key must not be empty")
+    if auth_token_ttl_seconds <= 0:
+        raise ValueError("auth token TTL must be positive")
+    if task_retention_days <= 0:
+        raise ValueError("task retention days must be positive")
 
     return RuntimeConfig(
         project_root=project_root,
@@ -155,8 +193,12 @@ def load_runtime_config(config_path: str | Path | None = None) -> RuntimeConfig:
         ),
         allowed_origins=allowed_origins,
         report_title=str(app["report_title"]),
+        task_retention_days=task_retention_days,
         inference_mode=inference_mode,
         device=device,
+        auth_secret_key=auth_secret_key,
+        auth_token_ttl_seconds=auth_token_ttl_seconds,
+        auth_registration_enabled=auth_registration_enabled,
         detector=_model_config(project_root, inference["detector"]),
         localizer=_model_config(project_root, inference["localizer"]),
     )
