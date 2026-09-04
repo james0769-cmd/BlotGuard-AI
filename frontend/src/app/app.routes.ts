@@ -1,4 +1,5 @@
 import { Routes } from '@angular/router';
+import { authGuard } from './core/guards/auth.guard';
 
 export const routes: Routes = [
   {
@@ -13,6 +14,7 @@ export const routes: Routes = [
   },
   {
     path: 'workspace',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./features/workspace/workspace.component').then((m) => m.WorkspaceComponent),
   },
@@ -23,6 +25,7 @@ export const routes: Routes = [
   },
   {
     path: 'reports',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./features/reports/reports.component').then(
         (m) => m.ReportsComponent
@@ -30,6 +33,7 @@ export const routes: Routes = [
   },
   {
     path: 'detection',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./features/detection-list/detection-list.component').then(
         (m) => m.DetectionListComponent
@@ -37,6 +41,7 @@ export const routes: Routes = [
   },
   {
     path: 'detection/:taskId',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./features/detection-detail/detection-detail.component').then(
         (m) => m.DetectionDetailComponent
@@ -44,6 +49,7 @@ export const routes: Routes = [
   },
   {
     path: 'queue',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./queue/queue.component').then((m) => m.QueueComponent),
   },

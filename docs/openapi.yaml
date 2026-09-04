@@ -4,16 +4,20 @@ info:
   version: 1.0.0
 servers:
   - url: /
+security:
+  - bearerAuth: []
 paths:
   /api/v1/health/live:
     get:
       operationId: getLiveness
+      security: []
       responses:
         "200":
           description: Process is alive
   /api/v1/health/ready:
     get:
       operationId: getReadiness
+      security: []
       responses:
         "200":
           description: Service is ready
@@ -91,6 +95,9 @@ paths:
           $ref: "#/components/responses/Error"
   /api/v1/artifacts/{artifact_id}:
     get:
+      security:
+        - bearerAuth: []
+        - artifactCookie: []
       operationId: getArtifact
       parameters:
         - name: artifact_id
@@ -111,6 +118,7 @@ paths:
   /api/auth/login:
     post:
       operationId: login
+      security: []
       description: Verify a database user and return a signed access token.
       requestBody:
         required: true
@@ -130,6 +138,7 @@ paths:
   /api/auth/register:
     post:
       operationId: register
+      security: []
       description: Create a local user with a hashed password.
       requestBody:
         required: true
@@ -148,6 +157,13 @@ paths:
           $ref: "#/components/responses/FrontendError"
         "409":
           $ref: "#/components/responses/FrontendError"
+  /api/auth/logout:
+    post:
+      operationId: logout
+      security: []
+      responses:
+        "204":
+          description: Artifact cookie cleared; clients must discard their access token.
   /api/auth/me:
     get:
       operationId: currentUser
@@ -246,6 +262,10 @@ paths:
           $ref: "#/components/responses/FrontendError"
 components:
   securitySchemes:
+    artifactCookie:
+      type: apiKey
+      in: cookie
+      name: blotguard_artifact_token
     bearerAuth:
       type: http
       scheme: bearer

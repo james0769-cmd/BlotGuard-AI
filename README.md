@@ -76,18 +76,21 @@ GET http://127.0.0.1:5000/api/v1/health
 GET http://127.0.0.1:5000/api/v1/health/ready
 ```
 
+先通过 `/api/auth/register` 注册或 `/api/auth/login` 登录，将返回的 `access_token`
+设置为环境变量 `BLOTGUARD_ACCESS_TOKEN`。任务和报告仅对所属用户开放。
+
 上传样例：
 
 ```bash
-curl -F "file=@sample_data/western_blots_dataset/real/real_img_00000.png" \
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" -F "file=@sample_data/western_blots_dataset/real/real_img_00000.png" \
   http://127.0.0.1:5000/api/v1/analyses
 ```
 
 返回的 `task_id` 用于查询：
 
 ```bash
-curl http://127.0.0.1:5000/api/v1/analyses/<task_id>
-curl -OJ http://127.0.0.1:5000/api/v1/analyses/<task_id>/report
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" http://127.0.0.1:5000/api/v1/analyses/<task_id>
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" -OJ http://127.0.0.1:5000/api/v1/analyses/<task_id>/report
 ```
 
 ## 启用真实模型
@@ -189,3 +192,5 @@ python scripts/smoke_api.py --mode mock
 - `docs/detector-data-splits.md`：Detector 原始划分与新冻结测试集。
 - `docs/detector-calibration.md`：Calibration、阈值与五级风险诊断结果。
 - `docs/openapi.yaml`：前后端共同使用的机器可读契约。
+
+升级权限隔离后，旧的无所属用户任务会保留，但不会自动分配给新账号。详见 `docs/api-contract.md`。

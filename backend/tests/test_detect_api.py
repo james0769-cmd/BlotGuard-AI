@@ -34,8 +34,7 @@ def _blot_png() -> bytes:
     return stream.getvalue()
 
 
-def test_detect_requires_image():
-    client = create_app({"TESTING": True}).test_client()
+def test_detect_requires_image(client):
 
     response = client.post("/api/v1/detect")
 
@@ -43,10 +42,8 @@ def test_detect_requires_image():
     assert response.get_json() == {"error": "image file is required"}
 
 
-def test_detect_returns_real_contract():
-    app = create_app({"TESTING": True})
+def test_detect_returns_real_contract(app, client):
     app.extensions["blotguard_detector"] = StubDetector()
-    client = app.test_client()
 
     response = client.post(
         "/api/v1/detect",

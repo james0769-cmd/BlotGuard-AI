@@ -7,7 +7,8 @@ from backend.blotguard import create_app
 from backend.blotguard.persistence.models import AnalysisItem, Artifact
 
 
-def test_real_registration_login_and_token_validation(client):
+def test_real_registration_login_and_token_validation(app):
+    client = app.test_client()
     missing = client.post(
         "/api/auth/login",
         json={"username": "missing", "password": "password123"},
@@ -172,3 +173,96 @@ def test_cleanup_deletes_only_expired_terminal_tasks(
     assert not storage.task_dir(old).exists()
     assert client.get(f"/api/tasks/{old}").status_code == 404
     assert client.get(f"/api/tasks/{recent}").status_code == 200
+
+
+def test_tasks_and_artifacts_are_private(app, client, png_bytes):
+    task_id = client.post(
+        "/api/tasks/upload",
+        data={"file": (BytesIO(png_bytes), "private.png")},
+    ).get_json()["task_id"]
+    result = client.get(f"/api/tasks/{task_id}/result").get_json()
+    image_url = result["items"][0]["original_image_url"]
+    anonymous = app.test_client()
+    stranger = app.test_client()
+    token = stranger.post("/api/auth/register", json={
+        "username": "stranger", "password": "password123",
+    }).get_json()["access_token"]
+    stranger.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+
+    for base in ("/api/tasks", "/api/v1/analyses"):
+        assert anonymous.get(base).status_code == 401
+        assert stranger.get(base).get_json()["tasks"] == []
+        assert client.get(base).get_json()["tasks"][0]["task_id"] == task_id
+        for suffix in ("", "/report"):
+            assert anonymous.get(f"{base}/{task_id}{suffix}").status_code == 401
+            assert stranger.get(f"{base}/{task_id}{suffix}").status_code == 404
+            assert client.get(f"{base}/{task_id}{suffix}").status_code == 200
+        assert anonymous.delete(f"{base}/{task_id}").status_code == 401
+        assert stranger.delete(f"{base}/{task_id}").status_code == 404
+    assert anonymous.get(f"/api/tasks/{task_id}/result").status_code == 401
+    assert stranger.get(f"/api/tasks/{task_id}/result").status_code == 404
+    assert anonymous.get(image_url).status_code == 401
+    assert stranger.get(image_url).status_code == 404
+    assert client.get(image_url).status_code == 200
+    assert anonymous.post("/api/tasks/upload").status_code == 401
+    assert anonymous.post("/api/v1/analyses").status_code == 401
+    assert anonymous.post("/api/v1/detect").status_code == 401
+
+    browser = app.test_client()
+    assert browser.post("/api/auth/login", json={
+        "username": "test_user", "password": "password123",
+    }).status_code == 200
+    assert browser.get(image_url).status_code == 200
+    assert browser.get("/api/tasks").status_code == 401
+    assert browser.delete(f"/api/tasks/{task_id}").status_code == 401
+    browser.post("/api/auth/logout")
+    assert browser.get(image_url).status_code == 401
+
+
+def test_public_task_lists_do_not_expose_storage_paths(client, png_bytes):
+    client.post("/api/tasks/upload", data={
+        "file": (BytesIO(png_bytes), "private.png"),
+    })
+
+    def assert_public(value):
+        if isinstance(value, dict):
+            assert not {"path", "source_path", "image_path"}.intersection(value)
+            for child in value.values():
+                assert_public(child)
+        elif isinstance(value, list):
+            for child in value:
+                assert_public(child)
+
+    for url in ("/api/tasks", "/api/v1/analyses"):
+        response = client.get(url)
+        assert response.status_code == 200
+        assert response.get_json()["tasks"]
+        assert_public(response.get_json())
+
+
+def test_legacy_tasks_remain_private_after_schema_upgrade(runtime_config, png_bytes):
+    from sqlalchemy import create_engine, inspect
+    from backend.blotguard.persistence.models import Base, TaskOwner, User
+
+    engine = create_engine(runtime_config.database_url)
+    Base.metadata.create_all(engine, tables=[
+        table for table in Base.metadata.sorted_tables
+        if table not in (TaskOwner.__table__, User.__table__)
+    ])
+    app = create_app({"TESTING": True, "RUNTIME_CONFIG": runtime_config})
+    try:
+        service = app.extensions["blotguard_analysis_service"]
+        task = service.submit(filename="legacy.png", media_type="image/png",
+                              stream=BytesIO(png_bytes), localize=False)
+        assert "task_owners" in inspect(engine).get_table_names()
+        client = app.test_client()
+        token = client.post("/api/auth/register", json={
+            "username": "new_user", "password": "password123",
+        }).get_json()["access_token"]
+        client.environ_base["HTTP_AUTHORIZATION"] = f"Bearer {token}"
+        assert client.get("/api/tasks").get_json()["tasks"] == []
+        assert client.get(f'/api/tasks/{task["task_id"]}').status_code == 404
+        assert service.get(task["task_id"])["status"] == "succeeded"
+    finally:
+        app.extensions["blotguard_analysis_service"].executor.shutdown(wait=True)
+        engine.dispose()

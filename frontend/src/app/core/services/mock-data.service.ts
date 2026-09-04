@@ -15,6 +15,8 @@ export interface ModelProbability {
 }
 
 export interface DetectionImage {
+  status: 'pending' | 'succeeded' | 'failed';
+  errorMessage: string | null;
   id: string;
   sourceName: string;
   pageNumber: number | null;
@@ -167,6 +169,8 @@ export class MockDataService {
       suspectRegions: [],
       modelProbabilities: [],
       images: [{
+        status: 'succeeded',
+        errorMessage: null,
         id: entry.id,
         sourceName: entry.fileName,
         pageNumber: null,

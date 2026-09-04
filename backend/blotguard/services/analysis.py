@@ -51,6 +51,7 @@ class AnalysisService:
         media_type: str,
         stream: BinaryIO,
         localize: bool,
+        owner_id: int | None = None,
     ) -> dict:
         if localize and not self.config.localizer.enabled:
             raise AppError(
@@ -72,6 +73,7 @@ class AnalysisService:
                 source_sha256=source_sha256,
                 source_path=source_path,
                 localize_requested=localize,
+                owner_id=owner_id,
             )
         except Exception:
             self.storage.delete_task(task_id)
@@ -173,8 +175,13 @@ class AnalysisService:
     def get(self, task_id: str) -> dict:
         return self.repository.task_detail(task_id)
 
-    def list(self, *, limit: int = 200) -> list[dict]:
-        return self.repository.list_tasks(limit=limit)
+    def list(
+        self, *, limit: int = 200, owner_id: int | None = None,
+        include_paths: bool = False,
+    ) -> list[dict]:
+        return self.repository.list_tasks(
+            limit=limit, owner_id=owner_id, include_paths=include_paths
+        )
 
     def delete(self, task_id: str) -> None:
         task = self.repository.task_detail(task_id)

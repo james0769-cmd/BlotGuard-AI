@@ -78,6 +78,42 @@ def _register_request_hooks(app: Flask) -> None:
         supplied = request.headers.get("X-Request-ID", "").strip()
         g.request_id = supplied[:128] if supplied else str(uuid4())
 
+    @app.before_request
+    def authorize_analysis_request():
+        if request.method == "OPTIONS":
+            return
+        endpoint = request.endpoint or ""
+        if not endpoint.startswith(("api.", "frontend_compat.")):
+            return
+        public = {
+            "frontend_compat.register", "frontend_compat.login",
+            "frontend_compat.logout",
+        }
+        if endpoint in public or request.path.startswith("/api/v1/health"):
+            return
+        authorization = request.headers.get("Authorization", "")
+        scheme, _, token = authorization.partition(" ")
+        if authorization:
+            if scheme.lower() != "bearer" or not token.strip():
+                raise AppError(
+                    "AUTHENTICATION_REQUIRED", "A Bearer access token is required", 401
+                )
+        elif endpoint == "api.get_artifact" and request.method in {"GET", "HEAD"}:
+            token = request.cookies.get("blotguard_artifact_token", "")
+        if not token.strip():
+            raise AppError(
+                "AUTHENTICATION_REQUIRED", "A Bearer access token is required", 401
+            )
+        auth = app.extensions["blotguard_auth_service"]
+        g.user = auth.authenticate(token.strip())
+        repository = app.extensions["blotguard_repository"]
+        args = request.view_args or {}
+        task_id = args.get("task_id")
+        if "artifact_id" in args:
+            task_id = repository.get_artifact(args["artifact_id"])["task_id"]
+        if task_id is not None:
+            repository.require_task_owner(task_id, g.user["id"])
+
     @app.after_request
     def add_response_headers(response):
         response.headers["X-Request-ID"] = getattr(g, "request_id", "")

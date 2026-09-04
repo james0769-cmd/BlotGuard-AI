@@ -189,6 +189,8 @@ class ReportService:
                     if item.get("prediction") == "generated"
                     else "疑似真实"
                     if item.get("prediction") == "original"
+                    else "检测失败"
+                    if item.get("status") == "failed"
                     else "非 Western Blot，不适用"
                 ),
             ],

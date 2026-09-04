@@ -57,6 +57,7 @@ export class AuthService {
 
   /** 登出：清除本地存储，跳转登录页 */
   logout(): void {
+    this.http.post<void>('/api/auth/logout', {}).subscribe();
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     this._token.set(null);

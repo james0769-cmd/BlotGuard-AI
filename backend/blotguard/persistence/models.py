@@ -68,6 +68,15 @@ class AnalysisTask(Base):
     )
 
 
+class TaskOwner(Base):
+    __tablename__ = "task_owners"
+
+    task_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_tasks.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+
+
 class AnalysisItem(Base):
     __tablename__ = "analysis_items"
 

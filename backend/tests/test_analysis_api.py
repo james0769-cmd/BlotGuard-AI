@@ -384,6 +384,10 @@ def test_real_mode_model_failure_never_falls_back_to_mock(
 
     try:
         client = app.test_client()
+        session = client.post("/api/auth/register", json={
+            "username": "real_test", "password": "password123",
+        }).get_json()
+        client.environ_base["HTTP_AUTHORIZATION"] = f'Bearer {session["access_token"]}'
         upload = client.post(
             "/api/tasks/upload",
             data={"file": (BytesIO(png_bytes), "real-image.png")},
@@ -455,3 +459,34 @@ def test_tiff_upload_is_supported(client):
     task = response.get_json()
     assert task["file_name"] == "sample.tiff"
     assert task["status"] == "completed"
+
+
+def test_partial_image_failure_preserves_error_without_a_score(app, client, png_bytes, monkeypatch):
+    detector = app.extensions["blotguard_inference"].detector()
+    predict = detector.predict
+    calls = 0
+
+    def fail_second(image_path):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise RuntimeError("Second image inference failed")
+        return predict(image_path)
+
+    monkeypatch.setattr(detector, "predict", fail_second)
+    task_id = client.post("/api/tasks/upload", data={
+        "file": (_docx_with_images(png_bytes), "partial.docx"),
+    }).get_json()["task_id"]
+    result = client.get(f"/api/tasks/{task_id}/result").get_json()
+    assert result["status"] == "completed"
+    assert result["result_summary"]["failed"] == 1
+    assert result["items"][0]["score_generated"] is not None
+    failed = result["items"][1]
+    assert failed["status"] == "failed"
+    assert failed["score_generated"] is None
+    assert failed["risk_level"] is None
+    assert failed["error"]["message"] == "Second image inference failed"
+    report = client.get(result["report_url"])
+    text = PdfReader(BytesIO(report.data)).pages[2].extract_text()
+    assert "检测失败" in text
+    assert "非 Western Blot，不适用" not in text

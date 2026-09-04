@@ -35,7 +35,13 @@ def app(runtime_config):
 
 @pytest.fixture()
 def client(app):
-    return app.test_client()
+    client = app.test_client()
+    session = client.post(
+        "/api/auth/register",
+        json={"username": "test_user", "password": "password123"},
+    ).get_json()
+    client.environ_base["HTTP_AUTHORIZATION"] = f'Bearer {session["access_token"]}'
+    return client
 
 
 @pytest.fixture()

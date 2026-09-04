@@ -10,7 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from flask import Blueprint, current_app, g, request, send_file
+from flask import Blueprint, current_app, g, request, send_file, jsonify
 from werkzeug.exceptions import HTTPException, RequestEntityTooLarge
 
 from backend.blotguard.core.errors import AppError
@@ -273,18 +273,35 @@ def _bearer_token() -> str:
     return token.strip()
 
 
+def _session_response(session: dict):
+    response = jsonify(session)
+    response.set_cookie(
+        "blotguard_artifact_token", session["access_token"],
+        max_age=session["expires_in"], httponly=True,
+        secure=request.is_secure, samesite="Strict", path="/api/v1/artifacts",
+    )
+    return response
+
+
+@frontend_compat.post("/auth/logout")
+def logout():
+    response = current_app.response_class(status=204)
+    response.delete_cookie("blotguard_artifact_token", path="/api/v1/artifacts")
+    return response
+
+
 @frontend_compat.post("/auth/register")
 def register():
     username, password = _credentials()
     auth = current_app.extensions["blotguard_auth_service"]
-    return auth.register(username, password), 201
+    return _session_response(auth.register(username, password)), 201
 
 
 @frontend_compat.post("/auth/login")
 def login():
     username, password = _credentials()
     auth = current_app.extensions["blotguard_auth_service"]
-    return auth.login(username, password)
+    return _session_response(auth.login(username, password))
 
 
 @frontend_compat.get("/auth/me")
@@ -310,6 +327,7 @@ def upload_task():
         media_type=uploaded.mimetype,
         stream=uploaded.stream,
         localize=False,
+        owner_id=g.user["id"],
     )
     return _summary(_full_task(task["task_id"])), 201
 
@@ -320,7 +338,8 @@ def list_tasks():
     if limit is None or limit <= 0 or limit > 500:
         raise AppError("INVALID_LIMIT", "limit must be between 1 and 500", 400)
     service = current_app.extensions["blotguard_analysis_service"]
-    return {"tasks": [_summary(task) for task in service.list(limit=limit)]}
+    tasks = service.list(limit=limit, owner_id=g.user["id"], include_paths=True)
+    return {"tasks": [_summary(task) for task in tasks]}
 
 
 @frontend_compat.get("/tasks/<task_id>")

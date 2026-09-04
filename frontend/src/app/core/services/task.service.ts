@@ -23,6 +23,7 @@ export interface TaskListResponse {
 export type RiskLevel = 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
 
 export interface TaskResultItem {
+  error: { code: string; message: string } | null;
   item_id: string;
   status: 'pending' | 'succeeded' | 'failed';
   source_name: string;

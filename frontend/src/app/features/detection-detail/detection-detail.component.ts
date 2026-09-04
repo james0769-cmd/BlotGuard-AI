@@ -23,6 +23,8 @@ import { riskBackground, riskForeground, riskLabel } from '../../core/risk-level
 
 /** 多图任务中每张图片的展示数据 */
 interface ImageItem {
+  status: 'pending' | 'succeeded' | 'failed';
+  errorMessage: string | null;
   id: string;
   index: number;
   label: string;
@@ -93,13 +95,15 @@ interface ImageItem {
               </span>
               <h2>{{ result()!.fileName }}</h2>
               <!-- 风险等级 -->
-              @if (currentImage().applicable) {
+              @if (currentImage().status === 'failed') {
+                <mat-chip>当前图检测失败</mat-chip>
+              } @else if (currentImage().applicable) {
                 <mat-chip [highlighted]="currentImage().riskLevel === 'very_high'"
                           [style.backgroundColor]="getRiskColor(currentImage().riskLevel)">
                   {{ getRiskLabel(currentImage().riskLevel) }}
                 </mat-chip>
                 <mat-chip>
-                  当前图风险分数: {{ ((currentImage().score ?? result()!.scoreGenerated ?? 0) * 100).toFixed(1) }}%
+                  当前图风险分数: {{ currentImage().score == null ? '--' : (currentImage().score! * 100).toFixed(1) }}%
                 </mat-chip>
               } @else {
                 <mat-chip class="not-applicable-chip">非 Western Blot · 不适用</mat-chip>
@@ -198,7 +202,12 @@ interface ImageItem {
           </div>
 
           <aside class="sidebar-section">
-            @if (!currentImage().applicable) {
+            @if (currentImage().status === 'failed') {
+              <section class="domain-rejection" role="alert">
+                <strong>当前图片检测失败</strong>
+                <p>{{ currentImage().errorMessage || '未能完成检测，请重新上传。' }}</p>
+              </section>
+            } @else if (!currentImage().applicable) {
               <section class="domain-rejection" role="status">
                 <mat-icon>image_not_supported</mat-icon>
                 <div>
@@ -217,13 +226,13 @@ interface ImageItem {
               </app-forensic-toolbar>
             }
 
-            @if (currentImage().applicable && currentImage().maskAvailable) {
+            @if (currentImage().status === 'succeeded' && currentImage().applicable && currentImage().maskAvailable) {
               <app-suspect-list
                 [regions]="result()!.suspectRegions"
                 [selectedId]="selectedRegionId()"
                 (regionSelected)="onRegionSelected($event)">
               </app-suspect-list>
-            } @else if (currentImage().applicable) {
+            } @else if (currentImage().status === 'succeeded' && currentImage().applicable) {
               <section class="localization-note">
                 <mat-icon>center_focus_weak</mat-icon>
                 <div>
@@ -517,6 +526,8 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
     if (!r) return [];
     return r.images.map((image, index) => ({
       id: image.id,
+      status: image.status,
+      errorMessage: image.errorMessage,
       index,
       label: image.pageNumber == null ? `第 ${index + 1} 张` : `第 ${image.pageNumber} 页`,
       sourceName: image.sourceName,
@@ -628,6 +639,8 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
   private mapTaskResult(taskId: string, r: TaskResult): DetectionResult {
     const images = (r.items || []).map((item, index) => ({
       id: item.item_id || `${taskId}-${index}`,
+      status: item.status,
+      errorMessage: item.error?.message ?? null,
       sourceName: item.source_name,
       pageNumber: item.page_number,
       originalImageUrl: item.original_image_url,
@@ -658,6 +671,8 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       suspectRegions: r.suspect_regions,
       modelProbabilities: r.model_probabilities,
       images: images.length ? images : [{
+        status: 'succeeded',
+        errorMessage: null,
         id: taskId,
         sourceName: r.filename,
         pageNumber: null,

@@ -25,7 +25,7 @@ from backend.blotguard.domain.risk import (
     risk_level_for_score,
 )
 from backend.blotguard.core.errors import AppError, NotFoundError
-from .models import AnalysisItem, AnalysisTask, Artifact, Base, User
+from .models import AnalysisItem, AnalysisTask, Artifact, Base, User, TaskOwner
 
 
 def _iso(value: datetime | None) -> str | None:
@@ -116,6 +116,7 @@ class AnalysisRepository:
         source_sha256: str,
         source_path: str,
         localize_requested: bool,
+        owner_id: int | None = None,
     ) -> None:
         with self.sessions.begin() as session:
             session.add(
@@ -130,6 +131,16 @@ class AnalysisRepository:
                     localize_requested=localize_requested,
                 )
             )
+
+            if owner_id is not None:
+                session.flush()
+                session.add(TaskOwner(task_id=task_id, user_id=owner_id))
+
+    def require_task_owner(self, task_id: str, user_id: int) -> None:
+        with self.sessions() as session:
+            owner = session.get(TaskOwner, task_id)
+            if owner is None or owner.user_id != user_id:
+                raise NotFoundError("analysis task", task_id)
 
     def set_task_status(
         self,
@@ -290,7 +301,10 @@ class AnalysisRepository:
                 raise NotFoundError("analysis task", task_id)
             return self._serialize_task(task, include_paths=include_paths)
 
-    def list_tasks(self, *, limit: int = 200) -> list[dict[str, Any]]:
+    def list_tasks(
+        self, *, limit: int = 200, owner_id: int | None = None,
+        include_paths: bool = False,
+    ) -> list[dict[str, Any]]:
         if limit <= 0 or limit > 500:
             raise ValueError("limit must be between 1 and 500")
         statement = (
@@ -304,9 +318,11 @@ class AnalysisRepository:
             .order_by(AnalysisTask.created_at.desc())
             .limit(limit)
         )
+        if owner_id is not None:
+            statement = statement.join(TaskOwner).where(TaskOwner.user_id == owner_id)
         with self.sessions() as session:
             return [
-                self._serialize_task(task, include_paths=True)
+                self._serialize_task(task, include_paths=include_paths)
                 for task in session.scalars(statement)
             ]
 
@@ -516,6 +532,10 @@ class AnalysisRepository:
             task = session.get(AnalysisTask, task_id)
             if task is None:
                 raise NotFoundError("analysis task", task_id)
+            owner = session.get(TaskOwner, task_id)
+            if owner is not None:
+                session.delete(owner)
+                session.flush()
             session.delete(task)
 
     def expired_terminal_task_ids(
