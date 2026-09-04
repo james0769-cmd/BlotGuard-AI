@@ -16,6 +16,19 @@ class Base(DeclarativeBase):
     pass
 
 
+class User(Base):
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    username: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(512))
+    role: Mapped[str] = mapped_column(String(32), default="developer")
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now
+    )
+
+
 class AnalysisTask(Base):
     __tablename__ = "analysis_tasks"
 
@@ -53,6 +66,15 @@ class AnalysisTask(Base):
     artifacts: Mapped[list["Artifact"]] = relationship(
         back_populates="task", cascade="all, delete-orphan"
     )
+
+
+class TaskOwner(Base):
+    __tablename__ = "task_owners"
+
+    task_id: Mapped[str] = mapped_column(
+        ForeignKey("analysis_tasks.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
 
 
 class AnalysisItem(Base):

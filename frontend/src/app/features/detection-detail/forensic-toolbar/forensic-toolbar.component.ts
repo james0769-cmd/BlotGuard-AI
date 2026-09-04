@@ -63,7 +63,7 @@ import { FormsModule } from '@angular/forms';
       } @else {
         <p class="no-mask-hint">
           <mat-icon>info</mat-icon>
-          当前模型不提供区域定位，掩码调节已隐藏
+          整图检测模式：仅提供亮度、对比度和缩放查看
         </p>
       }
 

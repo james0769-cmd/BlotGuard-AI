@@ -12,6 +12,14 @@ app:
   allowed_extensions: [jpg, jpeg, jfif, png, tif, tiff, pdf, docx]
   allowed_origins: [http://localhost:4200, http://localhost:8080]
   report_title: 蛋白印迹 AI 生成风险检测报告
+  task_retention_days: 30
+
+auth:
+  # Local development default. Production deployments must override this with
+  # BLOTGUARD_AUTH_SECRET_KEY.
+  secret_key: blotguard-local-development-only
+  token_ttl_seconds: 28800
+  registration_enabled: true
 
 inference:
   mode: real

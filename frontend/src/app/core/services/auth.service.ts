@@ -42,6 +42,12 @@ export class AuthService {
     );
   }
 
+  register(credentials: LoginRequest): Observable<LoginResponse> {
+    return this.http.post<LoginResponse>('/api/auth/register', credentials).pipe(
+      tap((res) => this.storeSession(res))
+    );
+  }
+
   private storeSession(res: LoginResponse): void {
     localStorage.setItem(this.TOKEN_KEY, res.access_token);
     localStorage.setItem(this.USER_KEY, JSON.stringify(res.user));
@@ -51,6 +57,7 @@ export class AuthService {
 
   /** 登出：清除本地存储，跳转登录页 */
   logout(): void {
+    this.http.post<void>('/api/auth/logout', {}).subscribe();
     localStorage.removeItem(this.TOKEN_KEY);
     localStorage.removeItem(this.USER_KEY);
     this._token.set(null);

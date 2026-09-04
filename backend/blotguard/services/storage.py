@@ -6,6 +6,7 @@ import hashlib
 from pathlib import Path
 import shutil
 from typing import BinaryIO
+from uuid import uuid4
 
 from backend.blotguard.core.errors import AppError
 
@@ -66,5 +67,29 @@ class LocalStorage:
             raise ValueError("Unsafe storage path")
         return resolved
 
+    def stage_task_delete(self, task_id: str) -> tuple[Path, Path] | None:
+        task_dir = self.task_dir(task_id)
+        if not task_dir.exists():
+            return None
+        staged = (self.root / f".delete-{uuid4()}").resolve()
+        if self.root not in staged.parents:
+            raise ValueError("Unsafe staged deletion path")
+        task_dir.rename(staged)
+        return task_dir, staged
+
+    @staticmethod
+    def finalize_task_delete(staged: tuple[Path, Path] | None) -> None:
+        if staged is not None:
+            shutil.rmtree(staged[1])
+
+    @staticmethod
+    def rollback_task_delete(staged: tuple[Path, Path] | None) -> None:
+        if staged is None:
+            return
+        original, temporary = staged
+        if temporary.exists() and not original.exists():
+            temporary.rename(original)
+
     def delete_task(self, task_id: str) -> None:
-        shutil.rmtree(self.task_dir(task_id), ignore_errors=True)
+        staged = self.stage_task_delete(task_id)
+        self.finalize_task_delete(staged)

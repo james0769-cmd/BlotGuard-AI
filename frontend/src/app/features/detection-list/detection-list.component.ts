@@ -10,8 +10,14 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Subject, takeUntil } from 'rxjs';
-import { MockDataService } from '../../core/services/mock-data.service';
 import { TaskService } from '../../core/services/task.service';
+import { RiskLevel } from '../../core/services/task.service';
+import {
+  RiskFilter,
+  riskBackground,
+  riskForeground,
+  riskLabel,
+} from '../../core/risk-level';
 
 interface TaskCard {
   id: string;
@@ -19,12 +25,12 @@ interface TaskCard {
   fileSize: number;
   uploadTime: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  overallScore?: number;
+  overallScore?: number | null;
+  riskLevel?: RiskLevel;
+  applicable?: boolean;
+  domainMessage?: string;
   errorMessage?: string;
-  isMock: boolean;
 }
-
-type RiskFilter = 'all' | 'high' | 'suspected' | 'uncertain' | 'likely_real' | 'high_real';
 
 const HISTORY_KEY = 'blotguard_upload_history';
 
@@ -47,16 +53,18 @@ const HISTORY_KEY = 'blotguard_upload_history';
       <header class="page-header">
         <h1>鉴伪分析</h1>
         <p class="subtitle">查看所有检测任务的分析结果和历史记录</p>
+        <p class="experimental-note">五级风险为实验性结果；DDPM/Pix2Pix 区分能力仍待改进，请人工复核。</p>
       </header>
 
       <div class="filter-bar">
-        <mat-button-toggle-group [(ngModel)]="riskFilter" hideSingleSelectionIndicator>
+        <mat-button-toggle-group [ngModel]="riskFilter()" (ngModelChange)="riskFilter.set($event)"
+                                 hideSingleSelectionIndicator>
           <mat-button-toggle value="all">全部 ({{ allTasks().length }})</mat-button-toggle>
-          <mat-button-toggle value="high">高置信生成 ({{ highCount() }})</mat-button-toggle>
-          <mat-button-toggle value="suspected">高疑似生成 ({{ suspectedCount() }})</mat-button-toggle>
-          <mat-button-toggle value="uncertain">不确定 ({{ uncertainCount() }})</mat-button-toggle>
-          <mat-button-toggle value="likely_real">高疑似真实 ({{ likelyRealCount() }})</mat-button-toggle>
-          <mat-button-toggle value="high_real">高置信真实 ({{ highRealCount() }})</mat-button-toggle>
+          <mat-button-toggle value="very_high">高置信生成 ({{ veryHighCount() }})</mat-button-toggle>
+          <mat-button-toggle value="high">高疑似生成 ({{ highCount() }})</mat-button-toggle>
+          <mat-button-toggle value="medium">不确定 ({{ mediumCount() }})</mat-button-toggle>
+          <mat-button-toggle value="low">高疑似真实 ({{ lowCount() }})</mat-button-toggle>
+          <mat-button-toggle value="very_low">高置信真实 ({{ veryLowCount() }})</mat-button-toggle>
         </mat-button-toggle-group>
       </div>
 
@@ -78,18 +86,33 @@ const HISTORY_KEY = 'blotguard_upload_history';
                 @if (task.status === 'processing') {
                   <span class="polling-dot"></span>
                 }
+                @if (task.status === 'completed' || task.status === 'failed') {
+                  <button mat-icon-button class="delete-button"
+                          (click)="deleteTask($event, task)"
+                          matTooltip="永久删除任务、图片和报告">
+                    <mat-icon>delete_outline</mat-icon>
+                  </button>
+                }
               </div>
               <div class="card-body">
-                @if (task.status === 'completed' && task.overallScore != null) {
+                @if (task.status === 'completed' && task.applicable === false) {
+                  <div class="domain-rejection" role="status">
+                    <mat-icon>image_not_supported</mat-icon>
+                    <div>
+                      <strong>非 Western Blot，无法鉴伪</strong>
+                      <span>{{ task.domainMessage }}</span>
+                    </div>
+                  </div>
+                } @else if (task.status === 'completed' && task.overallScore != null) {
                   <div class="score-row">
                     <span class="score-label">生成概率</span>
-                    <span class="score-value" [style.color]="getScoreColor(task.overallScore)">
+                    <span class="score-value" [style.color]="getScoreColor(task.riskLevel)">
                       {{ (task.overallScore * 100).toFixed(1) }}%
                     </span>
                   </div>
                   <div class="meta-row">
-                    <mat-chip [style.backgroundColor]="getRiskBgColor(task.overallScore)">
-                      {{ getRiskLabel(task.overallScore) }}
+                    <mat-chip [style.backgroundColor]="getRiskBgColor(task.riskLevel)">
+                      {{ getRiskLabel(task.riskLevel) }}
                     </mat-chip>
                     <span class="status-text">{{ getStatusLabel(task.status) }}</span>
                   </div>
@@ -122,6 +145,7 @@ const HISTORY_KEY = 'blotguard_upload_history';
     .page-header { margin-bottom: 24px; }
     .page-header h1 { margin: 0 0 8px; font-size: 28px; }
     .subtitle { color: var(--mat-sys-on-surface-variant); margin: 0; }
+    .experimental-note { margin: 8px 0 0; color: #92400e; font-size: 13px; }
     .filter-bar { margin-bottom: 24px; }
 
     .empty-state {
@@ -155,6 +179,7 @@ const HISTORY_KEY = 'blotguard_upload_history';
       width: 8px; height: 8px; border-radius: 50%;
       background: #ff9800; animation: pulse 1.5s infinite;
     }
+    .delete-button { color: #b91c1c; flex: 0 0 auto; }
     @keyframes pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.3; }
@@ -175,6 +200,13 @@ const HISTORY_KEY = 'blotguard_upload_history';
       color: #b91c1c; background: #fef2f2; font-size: 12px;
       mat-icon { flex: 0 0 auto; font-size: 16px; width: 16px; height: 16px; }
     }
+    .domain-rejection {
+      display: flex; align-items: flex-start; gap: 8px; padding: 10px;
+      border-radius: 7px; color: #854d0e; background: #fffbeb; font-size: 12px;
+    }
+    .domain-rejection mat-icon { color: #d97706; flex: 0 0 auto; }
+    .domain-rejection strong, .domain-rejection span { display: block; }
+    .domain-rejection span { margin-top: 3px; color: #78716c; line-height: 1.4; }
 
     .meta-row { display: flex; align-items: center; gap: 8px; }
     .status-text { font-size: 12px; color: var(--mat-sys-on-surface-variant); }
@@ -188,55 +220,36 @@ const HISTORY_KEY = 'blotguard_upload_history';
   `],
 })
 export class DetectionListComponent implements OnInit, OnDestroy {
-  riskFilter: RiskFilter = 'all';
+  riskFilter = signal<RiskFilter>('all');
   allTasks = signal<TaskCard[]>([]);
   private readonly destroy$ = new Subject<void>();
 
   constructor(
-    private mockData: MockDataService,
     private taskService: TaskService,
     private router: Router,
     private snackBar: MatSnackBar,
   ) {}
 
   ngOnInit(): void {
-    // 1. 加载真实上传历史
-    const cards: TaskCard[] = [];
-    try {
-      const raw = localStorage.getItem(HISTORY_KEY);
-      if (raw) {
-        const history = JSON.parse(raw);
-        for (const r of history) {
-          cards.push({
-            id: r.taskId,
-            fileName: r.fileName,
-            fileSize: r.fileSize || 0,
-            uploadTime: r.uploadTime || '',
-            status: 'pending',
-            overallScore: undefined,
-            isMock: false,
-          });
-        }
-      }
-    } catch { /* ignore */ }
-
-    // 2. 追加 mock 样本数据（用于 demo）
-    const uploadedFiles = this.mockData.getUploadedFiles();
-    for (const f of uploadedFiles) {
-      cards.push({
-        ...f,
-        isMock: true,
-      });
-    }
-
-    this.allTasks.set(cards);
-
-    // 3. 对真实任务持续轮询，直到任务完成、失败或组件销毁
-    for (const card of cards) {
-      if (!card.isMock) {
-        this.pollTask(card.id);
-      }
-    }
+    // 服务器是上传历史的唯一来源，页面可跨浏览器和刷新主动查看。
+    this.taskService.listTasks().pipe(takeUntil(this.destroy$)).subscribe({
+      next: tasks => {
+        const cards = tasks.map(task => ({
+          id: task.task_id,
+          fileName: task.file_name,
+          fileSize: task.file_size || 0,
+          uploadTime: new Date(task.created_at).toLocaleString('zh-CN'),
+          status: task.status,
+          errorMessage: task.error_message ?? undefined,
+        } satisfies TaskCard));
+        this.allTasks.set(cards);
+        for (const card of cards) this.pollTask(card.id);
+      },
+      error: err => {
+        const message = err?.error?.message || '上传历史读取失败，请检查后端服务';
+        this.snackBar.open(message, '关闭', { duration: 6000 });
+      },
+    });
   }
 
   ngOnDestroy(): void {
@@ -281,6 +294,9 @@ export class DetectionListComponent implements OnInit, OnDestroy {
         this.updateTask(taskId, {
           status: 'completed',
           overallScore: result.score_generated,
+          riskLevel: result.risk_level ?? undefined,
+          applicable: result.applicable,
+          domainMessage: result.domain_message ?? undefined,
           errorMessage: undefined,
         });
       },
@@ -298,54 +314,52 @@ export class DetectionListComponent implements OnInit, OnDestroy {
     )));
   }
 
-  highCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'high').length);
-  suspectedCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'suspected').length);
-  uncertainCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'uncertain').length);
-  likelyRealCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'likely_real').length);
-  highRealCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'high_real').length);
+  deleteTask(event: MouseEvent, task: TaskCard): void {
+    event.stopPropagation();
+    if (!window.confirm(`确定永久删除“${task.fileName}”吗？相关图片和报告也会删除。`)) return;
+    this.taskService.deleteTask(task.id).subscribe({
+      next: () => {
+        this.allTasks.update(tasks => tasks.filter(item => item.id !== task.id));
+        try {
+          const raw = localStorage.getItem(HISTORY_KEY);
+          const history = raw ? JSON.parse(raw) : [];
+          localStorage.setItem(HISTORY_KEY, JSON.stringify(
+            history.filter((item: { taskId: string }) => item.taskId !== task.id),
+          ));
+        } catch { /* server remains the source of truth */ }
+        this.snackBar.open('任务、图片和报告已删除', '关闭', { duration: 2500 });
+      },
+      error: err => this.snackBar.open(
+        err?.error?.message || '删除失败，请稍后重试',
+        '关闭',
+        { duration: 5000 },
+      ),
+    });
+  }
+
+  veryHighCount = computed(() => this.allTasks().filter(t => t.riskLevel === 'very_high').length);
+  highCount = computed(() => this.allTasks().filter(t => t.riskLevel === 'high').length);
+  mediumCount = computed(() => this.allTasks().filter(t => t.riskLevel === 'medium').length);
+  lowCount = computed(() => this.allTasks().filter(t => t.riskLevel === 'low').length);
+  veryLowCount = computed(() => this.allTasks().filter(t => t.riskLevel === 'very_low').length);
 
   filteredTasks = computed(() => {
     const tasks = this.allTasks();
-    if (this.riskFilter === 'all') return tasks;
-    return tasks.filter(t => this.getRisk(t.overallScore) === this.riskFilter);
+    const filter = this.riskFilter();
+    if (filter === 'all') return tasks;
+    return tasks.filter(t => t.riskLevel === filter);
   });
 
-  private getRisk(score?: number): 'high' | 'suspected' | 'uncertain' | 'likely_real' | 'high_real' {
-    if (score == null) return 'high_real';
-    if (score >= 0.8) return 'high';
-    if (score >= 0.5) return 'suspected';
-    if (score >= 0.3) return 'uncertain';
-    if (score >= 0.1) return 'likely_real';
-    return 'high_real';
+  getRiskLabel(level?: RiskLevel): string {
+    return riskLabel(level);
   }
 
-  getRiskLabel(score?: number): string {
-    switch (this.getRisk(score)) {
-      case 'high': return '高置信生成';
-      case 'suspected': return '高疑似生成';
-      case 'uncertain': return '不确定';
-      case 'likely_real': return '高疑似真实';
-      case 'high_real': return '高置信真实';
-    }
+  getRiskBgColor(level?: RiskLevel): string {
+    return riskBackground(level);
   }
 
-  getRiskBgColor(score?: number): string {
-    switch (this.getRisk(score)) {
-      case 'high': return '#ffcdd2';
-      case 'suspected': return '#fff3e0';
-      case 'uncertain': return '#fff9c4';
-      case 'likely_real': return '#c8e6c9';
-      case 'high_real': return '#e8f5e9';
-    }
-  }
-
-  getScoreColor(score?: number): string {
-    if (score == null) return '#9e9e9e';
-    if (score >= 0.8) return '#d32f2f';
-    if (score >= 0.5) return '#f57c00';
-    if (score >= 0.3) return '#f9a825';
-    if (score >= 0.1) return '#66bb6a';
-    return '#388e3c';
+  getScoreColor(level?: RiskLevel): string {
+    return riskForeground(level);
   }
 
   getStatusIcon(status: string): string {

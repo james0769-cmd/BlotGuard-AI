@@ -16,7 +16,32 @@ export interface TaskStatus {
   error_message: string | null;
 }
 
+export interface TaskListResponse {
+  tasks: TaskStatus[];
+}
+
 export type RiskLevel = 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
+
+export interface TaskResultItem {
+  error: { code: string; message: string } | null;
+  item_id: string;
+  status: 'pending' | 'succeeded' | 'failed';
+  source_name: string;
+  source_index: number;
+  page_number: number | null;
+  width: number;
+  height: number;
+  score_generated: number | null;
+  risk_level: RiskLevel | null;
+  prediction: 'generated' | 'original' | 'not_applicable';
+  applicable: boolean;
+  domain_label: 'western_blot' | 'non_western_blot';
+  domain_message: string | null;
+  original_image_url: string;
+  mask_available: boolean;
+  mask_image_url: string | null;
+  localization_message: string | null;
+}
 
 /**
  * 检测结果响应（对应 /api/tasks/{task_id}/result）
@@ -28,19 +53,22 @@ export interface TaskResult {
   mask_available: boolean;
   mask_image_url: string | null;
   localization_message: string | null;
-  overall_score: number;        // 兼容字段，等同于 score_generated
-  score_generated: number;
-  score_semantics: 'uncalibrated_sigmoid_risk_score';
-  prediction: 'generated' | 'original';
-  threshold: number;
-  risk_level: RiskLevel;
+  overall_score: number | null; // 非 Western Blot 时不产生分数
+  score_generated: number | null;
+  score_semantics: 'uncalibrated_sigmoid_risk_score' | null;
+  prediction: 'generated' | 'original' | 'not_applicable' | null;
+  applicable: boolean;
+  domain_label: 'western_blot' | 'non_western_blot';
+  domain_message: string | null;
+  threshold: number | null;
+  risk_level: RiskLevel | null;
   risk_level_semantics: 'experimental_class_balanced_calibrated_risk';
   risk_level_version: 'experimental-platt-balanced-v1';
   risk_level_is_experimental: true;
-  model_version: string;
-  weight_sha256: string;
-  device: string;
-  processing_time: number;      // 秒
+  model_version: string | null;
+  weight_sha256: string | null;
+  device: string | null;
+  processing_time: number | null; // 秒
   suspect_regions: {
     id: number;
     label: string;
@@ -52,6 +80,10 @@ export interface TaskResult {
     model: string;
     probability: number;
   }[];
+  image_count: number;
+  items: TaskResultItem[];
+  report_available: boolean;
+  report_url: string | null;
 }
 
 /**
@@ -74,6 +106,16 @@ export class TaskService {
    */
   getTaskStatus(taskId: string): Observable<TaskStatus> {
     return this.http.get<TaskStatus>(`/api/tasks/${taskId}`);
+  }
+
+  listTasks(limit = 200): Observable<TaskStatus[]> {
+    return this.http.get<TaskListResponse>(`/api/tasks?limit=${limit}`).pipe(
+      map(response => response.tasks),
+    );
+  }
+
+  deleteTask(taskId: string): Observable<void> {
+    return this.http.delete<void>(`/api/tasks/${taskId}`);
   }
 
   /**

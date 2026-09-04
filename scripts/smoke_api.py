@@ -27,7 +27,10 @@ def main() -> int:
     parser.add_argument(
         "--mode", choices=("mock", "real"), default="mock"
     )
+    parser.add_argument("--token", default=os.environ.get("BLOTGUARD_ACCESS_TOKEN"))
     args = parser.parse_args()
+    if not args.token:
+        parser.error("Set BLOTGUARD_ACCESS_TOKEN to a login access token")
 
     os.environ["BLOTGUARD_INFERENCE_MODE"] = args.mode
     os.environ["BLOTGUARD_EXECUTION_MODE"] = "inline"
@@ -41,6 +44,7 @@ def main() -> int:
                 "/api/v1/analyses",
                 data={"file": (stream, args.image.name)},
                 content_type="multipart/form-data",
+                headers={"Authorization": f"Bearer {args.token}"},
             )
         print(json.dumps(response.get_json(), ensure_ascii=False, indent=2))
         return 0 if response.status_code == 202 else 1

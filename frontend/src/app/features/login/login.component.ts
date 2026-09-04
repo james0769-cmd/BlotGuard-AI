@@ -299,8 +299,7 @@ export class LoginComponent {
     this.regErrorMsg.set('');
     this.regSuccessMsg.set('');
 
-    // 注册成功后调用登录接口（后端 mock 模式接受任意账号密码）
-    this.authService.login({ username: user, password: pwd }).subscribe({
+    this.authService.register({ username: user, password: pwd }).subscribe({
       next: () => {
         this.regSuccessMsg.set('注册成功，即将跳转...');
         // 延迟跳转让用户看到成功提示

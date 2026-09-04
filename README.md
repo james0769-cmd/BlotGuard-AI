@@ -17,7 +17,8 @@ Flask 为 HTTP 边界，以 SQLAlchemy 保存任务元数据，以任务隔离�
 - SQLite 本地开发及 MySQL 部署配置。
 - Flask、Gunicorn、Docker Compose 和 NGINX 配置。
 - OpenAPI 3.1 接口文档和端到端测试。
-- 前端 v0.1 草案兼容接口：`/api/auth/login`、`/api/tasks/upload`、
+- 数据库用户、密码哈希、限时签名令牌和真实登录/注册接口。
+- 前端 v0.1 草案兼容接口：`/api/auth/register`、`/api/auth/login`、`/api/tasks/upload`、
   `/api/tasks/<task_id>`、`/api/tasks/<task_id>/result`、
   `/api/tasks/<task_id>/report`。
 
@@ -75,18 +76,21 @@ GET http://127.0.0.1:5000/api/v1/health
 GET http://127.0.0.1:5000/api/v1/health/ready
 ```
 
+先通过 `/api/auth/register` 注册或 `/api/auth/login` 登录，将返回的 `access_token`
+设置为环境变量 `BLOTGUARD_ACCESS_TOKEN`。任务和报告仅对所属用户开放。
+
 上传样例：
 
 ```bash
-curl -F "file=@sample_data/western_blots_dataset/real/real_img_00000.png" \
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" -F "file=@sample_data/western_blots_dataset/real/real_img_00000.png" \
   http://127.0.0.1:5000/api/v1/analyses
 ```
 
 返回的 `task_id` 用于查询：
 
 ```bash
-curl http://127.0.0.1:5000/api/v1/analyses/<task_id>
-curl -OJ http://127.0.0.1:5000/api/v1/analyses/<task_id>/report
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" http://127.0.0.1:5000/api/v1/analyses/<task_id>
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" -OJ http://127.0.0.1:5000/api/v1/analyses/<task_id>/report
 ```
 
 ## 启用真实模型
@@ -155,6 +159,16 @@ export BLOTGUARD_DATABASE_URL='mysql+pymysql://blotguard:blotguard@127.0.0.1:330
 独立数据职责，因此未引入；如指导老师要求使用，应先明确它保存的唯一数据类型，
 避免与 MySQL 重复存储。
 
+终态任务默认保留 30 天。手动清理过期任务：
+
+```bash
+python scripts/cleanup_tasks.py
+python scripts/cleanup_tasks.py --older-than-days 7 --limit 100
+```
+
+本地默认允许注册。生产环境应设置 `BLOTGUARD_AUTH_SECRET_KEY`，并可通过
+`BLOTGUARD_AUTH_REGISTRATION_ENABLED=false` 关闭公开注册。
+
 ## 测试
 
 ```bash
@@ -178,3 +192,5 @@ python scripts/smoke_api.py --mode mock
 - `docs/detector-data-splits.md`：Detector 原始划分与新冻结测试集。
 - `docs/detector-calibration.md`：Calibration、阈值与五级风险诊断结果。
 - `docs/openapi.yaml`：前后端共同使用的机器可读契约。
+
+升级权限隔离后，旧的无所属用户任务会保留，但不会自动分配给新账号。详见 `docs/api-contract.md`。

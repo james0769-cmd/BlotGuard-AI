@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from flask import current_app, request, send_file
+from flask import current_app, g, request, send_file
 
 from backend.blotguard.core.errors import AppError
 from . import api
@@ -41,8 +41,18 @@ def create_analysis():
         media_type=uploaded.mimetype,
         stream=uploaded.stream,
         localize=_boolean_form("localize"),
+        owner_id=g.user["id"],
     )
     return task, 202
+
+
+@api.get("/analyses")
+def list_analyses():
+    service = current_app.extensions["blotguard_analysis_service"]
+    limit = request.args.get("limit", default=200, type=int)
+    if limit is None or limit <= 0 or limit > 500:
+        raise AppError("INVALID_LIMIT", "limit must be between 1 and 500", 400)
+    return {"tasks": service.list(limit=limit, owner_id=g.user["id"])}
 
 
 @api.get("/analyses/<task_id>")

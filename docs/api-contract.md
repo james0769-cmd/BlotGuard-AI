@@ -68,12 +68,19 @@ GET /api/v1/health/ready
 这些接口用于匹配前端页面草案和 API 字段需求：
 
 ```text
+POST /api/auth/register
 POST /api/auth/login
+GET  /api/auth/me
 POST /api/tasks/upload
 GET  /api/tasks/{task_id}
+DELETE /api/tasks/{task_id}
 GET  /api/tasks/{task_id}/result
 GET  /api/tasks/{task_id}/report
 ```
+
+注册和登录使用数据库用户及密码哈希，不接受不存在的账号或错误密码。成功后返回
+有过期时间的签名 Bearer token；`GET /api/auth/me` 可验证 token。生产环境必须
+使用 `BLOTGUARD_AUTH_SECRET_KEY` 覆盖本地开发密钥。
 
 兼容状态映射：
 
@@ -120,3 +127,18 @@ GET  /api/tasks/{task_id}/report
 报告由后端生成，任务成功后可直接下载；不需要额外生成接口。
 失败任务请求报告时返回 `TASK_FAILED` 和原始任务错误，不会用
 `REPORT_NOT_READY` 隐藏真实失败原因。
+
+## 任务访问权限
+
+除健康检查、注册、登录和登出外，API 请求需要 `Authorization: Bearer <access_token>`。
+两套任务接口均只列出当前用户的任务；访问其他用户或无所属用户的历史任务返回 404。
+图片与报告同样校验任务归属。列表接口不返回内部存储路径。
+
+登录/注册同时设置仅用于 `/api/v1/artifacts` 的 HttpOnly、SameSite=Strict Cookie，
+让同源页面的图片元素能通过鉴权；写操作不能使用该 Cookie 代替 Bearer 令牌。
+`POST /api/auth/logout` 清除图片 Cookie，客户端同时丢弃本地令牌。
+
+升级时自动新增 `task_owners` 表，不修改已有任务数据；无法确认归属的旧任务保留在数据库和
+存储目录中，但不向新账号公开。需由维护者核实归属后再进行数据迁移。
+多图任务的 `items[].status=failed` 表示该图检测失败，界面展示 `items[].error.message`，
+不使用任务汇总分数替代该图的空分数。

@@ -1,9 +1,11 @@
 Flask>=3.1,<4
 Flask-Cors>=5,<7
 gunicorn>=22,<24
+itsdangerous>=2.2,<3
 Pillow>=11,<13
 pypdf>=5,<7
 PyMySQL>=1.1,<2
 PyYAML>=6,<7
 reportlab>=4.2,<5
 SQLAlchemy>=2.0,<3
+Werkzeug>=3.1,<4

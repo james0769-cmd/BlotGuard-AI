@@ -20,12 +20,12 @@ services:
     build:
       context: .
       args:
-        INSTALL_MODEL_RUNTIME: "false"
+        INSTALL_MODEL_RUNTIME: "true"
     environment:
       BLOTGUARD_DATABASE_URL: mysql+pymysql://blotguard:blotguard@mysql:3306/blotguard
       BLOTGUARD_STORAGE_ROOT: /workspace/var/tasks
       BLOTGUARD_EXECUTION_MODE: thread
-      BLOTGUARD_INFERENCE_MODE: mock
+      BLOTGUARD_INFERENCE_MODE: real
       BLOTGUARD_ALLOWED_ORIGINS: http://localhost:8080,http://localhost:4200
     volumes:
       - .:/workspace
@@ -42,6 +42,7 @@ services:
       - "8080:80"
     volumes:
       - ./deploy/nginx.compose.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./frontend/dist/blotguard-web/browser:/usr/share/nginx/html:ro
     depends_on:
       - backend
 

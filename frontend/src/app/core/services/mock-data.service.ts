@@ -14,6 +14,22 @@ export interface ModelProbability {
   probability: number;
 }
 
+export interface DetectionImage {
+  status: 'pending' | 'succeeded' | 'failed';
+  errorMessage: string | null;
+  id: string;
+  sourceName: string;
+  pageNumber: number | null;
+  originalImageUrl: string;
+  maskAvailable: boolean;
+  maskImageUrl: string | null;
+  localizationMessage: string;
+  scoreGenerated: number | null;
+  riskLevel: RiskLevel | null;
+  applicable: boolean;
+  domainMessage: string;
+}
+
 export interface DetectionResult {
   id: string;
   fileName: string;
@@ -23,13 +39,16 @@ export interface DetectionResult {
   maskAvailable: boolean;
   maskImageUrl: string | null;
   localizationMessage: string;
-  scoreGenerated: number;
-  riskLevel: RiskLevel;
+  scoreGenerated: number | null;
+  riskLevel: RiskLevel | null;
+  applicable: boolean;
+  domainMessage: string;
   riskLevelIsExperimental: true;
   modelVersion: string;
   processingTime: number;
   suspectRegions: SuspectRegion[];
   modelProbabilities: ModelProbability[];
+  images: DetectionImage[];
 }
 
 export interface UploadedFile {
@@ -142,11 +161,28 @@ export class MockDataService {
       localizationMessage: '当前版本不提供区域定位',
       scoreGenerated: entry.scoreGenerated,
       riskLevel: riskLevelForScore(entry.scoreGenerated),
+      applicable: true,
+      domainMessage: '输入通过 Western Blot 图像域预检',
       riskLevelIsExperimental: true,
       modelVersion: entry.modelVersion,
       processingTime: 8.3,
       suspectRegions: [],
       modelProbabilities: [],
+      images: [{
+        status: 'succeeded',
+        errorMessage: null,
+        id: entry.id,
+        sourceName: entry.fileName,
+        pageNumber: null,
+        originalImageUrl: entry.assetPath,
+        maskAvailable: false,
+        maskImageUrl: null,
+        localizationMessage: '当前版本仅提供整图风险判断',
+        scoreGenerated: entry.scoreGenerated,
+        riskLevel: riskLevelForScore(entry.scoreGenerated),
+        applicable: true,
+        domainMessage: '输入通过 Western Blot 图像域预检',
+      }],
     };
   }
 }

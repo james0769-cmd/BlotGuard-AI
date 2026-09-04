@@ -1,5 +1,7 @@
 from io import BytesIO
 
+from PIL import Image, ImageDraw, ImageFilter
+
 from backend.blotguard import create_app
 from backend.blotguard.domain.contracts import DetectionResult, ModelMetadata
 
@@ -22,8 +24,17 @@ class StubDetector:
         )
 
 
-def test_detect_requires_image():
-    client = create_app({"TESTING": True}).test_client()
+def _blot_png() -> bytes:
+    stream = BytesIO()
+    image = Image.new("RGB", (256, 256), color=(225, 225, 225))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle((30, 95, 105, 120), radius=8, fill=(30, 30, 30))
+    draw.rounded_rectangle((145, 95, 225, 120), radius=8, fill=(35, 35, 35))
+    image.filter(ImageFilter.GaussianBlur(3)).save(stream, format="PNG")
+    return stream.getvalue()
+
+
+def test_detect_requires_image(client):
 
     response = client.post("/api/v1/detect")
 
@@ -31,14 +42,12 @@ def test_detect_requires_image():
     assert response.get_json() == {"error": "image file is required"}
 
 
-def test_detect_returns_real_contract():
-    app = create_app({"TESTING": True})
+def test_detect_returns_real_contract(app, client):
     app.extensions["blotguard_detector"] = StubDetector()
-    client = app.test_client()
 
     response = client.post(
         "/api/v1/detect",
-        data={"image": (BytesIO(b"image-bytes"), "sample.png")},
+        data={"image": (BytesIO(_blot_png()), "sample.png")},
         content_type="multipart/form-data",
     )
 
@@ -56,6 +65,9 @@ def test_detect_returns_real_contract():
         "model_version": "detector-v1",
         "weight_sha256": "abc123",
         "is_mock": False,
+        "applicable": True,
+        "domain_label": "western_blot",
+        "domain_message": "输入通过 Western Blot 图像域预检",
         "mask_available": False,
         "mask_image_url": None,
         "suspect_regions": [],

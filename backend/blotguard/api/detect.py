@@ -4,9 +4,11 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from flask import current_app, request
+from PIL import UnidentifiedImageError
 
 from backend.blotguard.core.config import load_runtime_config
 from backend.blotguard.inference.detector import Detector
+from backend.blotguard.inference.domain_gate import WesternBlotDomainGate
 from . import api
 
 
@@ -31,7 +33,27 @@ def detect():
     with TemporaryDirectory(prefix="blotguard-") as temp_dir:
         image_path = Path(temp_dir) / f"input{suffix}"
         image.save(image_path)
-        result = _detector().predict(image_path).to_dict()
+        try:
+            assessment = WesternBlotDomainGate().assess(image_path)
+        except (UnidentifiedImageError, OSError):
+            return {"error": "unable to decode image"}, 422
+        if assessment.accepted:
+            result = _detector().predict(image_path).to_dict()
+            result.update(
+                applicable=True,
+                domain_label=assessment.label,
+                domain_message=assessment.message,
+            )
+        else:
+            result = {
+                "task": "detect",
+                "prediction": "not_applicable",
+                "score_generated": None,
+                "score_semantics": None,
+                "applicable": False,
+                "domain_label": assessment.label,
+                "domain_message": assessment.message,
+            }
 
     result["image"] = image.filename
     result["mask_available"] = False
