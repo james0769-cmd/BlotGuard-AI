@@ -57,7 +57,8 @@ export class WorkspaceComponent {
   isDragOver = signal(false);
 
   private readonly ALLOWED_EXTENSIONS = ['.pdf', '.docx', '.jpg', '.jpeg', '.png', '.tiff', '.tif'];
-  private readonly MAX_FILE_SIZE = 50 * 1024 * 1024;
+  readonly maxFileSizeMB = 30;
+  private readonly MAX_FILE_SIZE = this.maxFileSizeMB * 1024 * 1024;
 
   constructor(
     private uploadService: UploadService,
@@ -115,7 +116,7 @@ export class WorkspaceComponent {
 
     if (file.size > this.MAX_FILE_SIZE) {
       this.snackBar.open(
-        `文件过大（${this.formatFileSize(file.size)}），最大允许 50MB`,
+        `文件过大（${this.formatFileSize(file.size)}），最大允许 ${this.maxFileSizeMB}MB`,
         '关闭',
         { duration: 4000 }
       );
@@ -140,13 +141,7 @@ export class WorkspaceComponent {
           const capped = Math.min(raw, 90);
           this.uploadProgress.set(Math.max(this.uploadProgress(), capped));
         } else if (event.type === HttpEventType.Response && event.body) {
-          this.uploadStatus.set('processing');
-          this.uploadPhaseText.set('服务器处理中...');
-          this.uploadProgress.set(95);
-          // 短暂延迟后确认完成，让用户看到 "处理中" 过渡
-          setTimeout(() => {
-            this.handleUploadSuccess(file, event.body!.task_id);
-          }, 300);
+          this.handleUploadSuccess(file, event.body.task_id);
         }
       },
       error: (err) => {

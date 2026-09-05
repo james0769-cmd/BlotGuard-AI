@@ -243,6 +243,36 @@ def test_mixed_document_only_scores_western_blot_images(client, png_bytes):
     assert result["result_summary"]["not_applicable"] == 1
 
 
+def test_upload_limit_applies_to_file_bytes(runtime_config, png_bytes):
+    runtime = replace(runtime_config, max_upload_bytes=len(png_bytes))
+    app = create_app({"TESTING": True, "RUNTIME_CONFIG": runtime})
+    try:
+        client = app.test_client()
+        session = client.post(
+            "/api/auth/register",
+            json={"username": "upload_limit", "password": "password123"},
+        ).get_json()
+        client.environ_base["HTTP_AUTHORIZATION"] = f'Bearer {session["access_token"]}'
+
+        response = client.post(
+            "/api/tasks/upload",
+            data={"file": (BytesIO(png_bytes), "limit.png")},
+            content_type="multipart/form-data",
+        )
+        assert response.status_code == 201
+        assert response.get_json()["file_size"] == len(png_bytes)
+
+        response = client.post(
+            "/api/tasks/upload",
+            data={"file": (BytesIO(png_bytes + b"x"), "over-limit.png")},
+            content_type="multipart/form-data",
+        )
+        assert response.status_code == 413
+        assert response.get_json()["error"] == "FILE_TOO_LARGE"
+    finally:
+        app.extensions["blotguard_analysis_service"].executor.shutdown(wait=True)
+
+
 def test_rejects_unsupported_extension(client, png_bytes):
     response = client.post(
         "/api/v1/analyses",

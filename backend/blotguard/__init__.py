@@ -29,7 +29,7 @@ def create_app(test_config: Mapping[str, Any] | None = None) -> Flask:
 
     app = Flask(__name__)
     app.config.from_mapping(
-        MAX_CONTENT_LENGTH=runtime.max_upload_bytes,
+        MAX_CONTENT_LENGTH=runtime.max_upload_bytes + 1024 * 1024,
         JSON_SORT_KEYS=False,
     )
     app.config.from_mapping(overrides)
