@@ -82,7 +82,7 @@ src/app/
 ## 关键技术方案
 
 ### 跨域处理（开发环境）
-- `proxy.conf.json` 将 `/api/*` 转发到 Flask `http://localhost:5000`
+- `proxy.conf.json` 将 `/api/*` 转发到本机 Flask `http://127.0.0.1:5001`
 - 生产环境通过 Nginx 反向代理，无需前端处理
 
 ### 双图画布交互

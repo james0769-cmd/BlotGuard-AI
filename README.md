@@ -47,12 +47,30 @@ var/                    本地任务文件和 SQLite 数据库，运行时生成
 
 ## 快速启动
 
-Python 版本统一为 3.10。
+Python 版本统一为 3.10。前端需要 Angular 支持的 Node.js 版本
+（`^20.19.0`、`^22.12.0` 或 `>=24.0.0`）和 npm 11 或更高版本。
+
+已安装好本机依赖时，可在项目根目录一键启动前后端和真实模型：
+
+```bash
+./start.sh
+```
+
+浏览器访问 `http://127.0.0.1:4200`，按 `Control+C` 同时停止前后端。
+如需使用其他 Python 或 Node.js，可分别设置 `BLOTGUARD_PYTHON` 和
+`BLOTGUARD_NODE`。本机开发后端默认使用 `5001` 端口，以避开 macOS
+AirPlay Receiver 通常占用的 `5000` 端口；前端开发服务器会自动代理 API。
+如需更换端口，可执行
+`BLOTGUARD_PORT=5100 BLOTGUARD_FRONTEND_PORT=4300 ./start.sh`。
 
 ```bash
 python3.10 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
+pip install -r requirements-model.txt
+cd frontend
+npm ci
+cd ..
 ```
 
 先使用开发 mock 验证 Web 全链路：
@@ -63,17 +81,17 @@ export BLOTGUARD_EXECUTION_MODE=inline
 flask --app backend.blotguard:create_app run --debug
 ```
 
-若 macOS 的 5000 端口被系统占用：
+单独启动本机开发后端：
 
 ```bash
-BLOTGUARD_PORT=5001 python scripts/run_dev.py
+python scripts/run_dev.py
 ```
 
 访问：
 
 ```text
-GET http://127.0.0.1:5000/api/v1/health
-GET http://127.0.0.1:5000/api/v1/health/ready
+GET http://127.0.0.1:5001/api/v1/health
+GET http://127.0.0.1:5001/api/v1/health/ready
 ```
 
 先通过 `/api/auth/register` 注册或 `/api/auth/login` 登录，将返回的 `access_token`
@@ -83,14 +101,14 @@ GET http://127.0.0.1:5000/api/v1/health/ready
 
 ```bash
 curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" -F "file=@sample_data/western_blots_dataset/real/real_img_00000.png" \
-  http://127.0.0.1:5000/api/v1/analyses
+  http://127.0.0.1:5001/api/v1/analyses
 ```
 
 返回的 `task_id` 用于查询：
 
 ```bash
-curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" http://127.0.0.1:5000/api/v1/analyses/<task_id>
-curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" -OJ http://127.0.0.1:5000/api/v1/analyses/<task_id>/report
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" http://127.0.0.1:5001/api/v1/analyses/<task_id>
+curl -H "Authorization: Bearer $BLOTGUARD_ACCESS_TOKEN" -OJ http://127.0.0.1:5001/api/v1/analyses/<task_id>/report
 ```
 
 ## 启用真实模型
