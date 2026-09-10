@@ -10,6 +10,10 @@
   },
   "private": true,
   "packageManager": "npm@11.11.0",
+  "engines": {
+    "node": "^20.19.0 || ^22.12.0 || >=24.0.0",
+    "npm": ">=11"
+  },
   "dependencies": {
     "@angular/cdk": "^21.2.14",
     "@angular/common": "^21.2.0",
@@ -29,5 +33,12 @@
     "@angular/compiler-cli": "^21.2.0",
     "prettier": "^3.8.1",
     "typescript": "~5.9.2"
+  },
+  "allowScripts": {
+    "@parcel/watcher@2.6.0": true,
+    "esbuild@0.28.1": true,
+    "fsevents@2.3.3": true,
+    "lmdb@3.5.1": true,
+    "msgpackr-extract@3.0.4": true
   }
 }
