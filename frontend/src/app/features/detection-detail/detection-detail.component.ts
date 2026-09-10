@@ -18,7 +18,15 @@ import {
   SuspectRegion,
 } from '../../core/services/mock-data.service';
 import { ReportService } from '../../core/services/report.service';
-import { TaskService, TaskResult } from '../../core/services/task.service';
+import {
+  TaskService,
+  TaskResult,
+  RiskLevel,
+  RISK_LEVEL_LABELS,
+  RISK_LEVEL_COLORS,
+  RISK_LEVEL_TEXT_COLORS,
+  riskLevelForScore,
+} from '../../core/services/task.service';
 
 /** 多图任务中每张图片的展示数据 */
 interface ImageItem {
@@ -75,12 +83,13 @@ interface ImageItem {
               </span>
               <h2>{{ result()!.fileName }}</h2>
               <!-- 风险等级 -->
-              <mat-chip [highlighted]="result()!.overallScore >= 0.8"
-                        [style.backgroundColor]="getRiskColor(result()!.overallScore)">
-                {{ getRiskLabel(result()!.overallScore) }}
+              <mat-chip [highlighted]="result()!.riskLevel === 'very_high' || result()!.riskLevel === 'high'"
+                        [style.backgroundColor]="getRiskBgColor(result()!)"
+                        [style.color]="getRiskTextColor(result()!)">
+                {{ getRiskLabel(result()!) }}
               </mat-chip>
               <mat-chip>
-                置信度: {{ (result()!.overallConfidence * 100).toFixed(0) }}%
+                生成概率: {{ (result()!.scoreGenerated * 100).toFixed(0) }}%
               </mat-chip>
             </div>
             <div class="header-actions">
@@ -120,7 +129,7 @@ interface ImageItem {
             </span>
             <span class="meta-item" [matTooltip]="result()!.modelVersion">
               <mat-icon>model_training</mat-icon>
-              {{ shortModelVersion() }}
+              模型版本: {{ shortModelVersion() }}
             </span>
           </div>
           <!-- 图片切换器（多图时显示） -->
@@ -439,8 +448,8 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       index: 0,
       label: '第 1 张',
       originalImageUrl: r.originalImageUrl,
-      maskImageUrl: r.maskImageUrl,
-      score: r.overallScore,
+      maskImageUrl: r.maskImageUrl ?? '',
+      score: r.scoreGenerated,
     }];
   });
 
@@ -541,10 +550,12 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
       uploadTime: '',
       status: 'completed',
       originalImageUrl: r.original_image_url,
+      maskAvailable: r.mask_available,
       maskImageUrl: r.mask_image_url,
-      overallScore: r.overall_score,
-      overallRisk: r.risk_level,
-      overallConfidence: r.overall_score,
+      localizationMessage: r.localization_message ?? '当前版本不提供区域定位',
+      scoreGenerated: r.score_generated,
+      riskLevel: r.risk_level,
+      riskLevelIsExperimental: r.risk_level_is_experimental,
       modelVersion: r.model_version,
       processingTime: r.processing_time,
       suspectRegions: r.suspect_regions,
@@ -578,30 +589,24 @@ export class DetectionDetailComponent implements OnInit, OnDestroy {
     });
   }
 
-  getRiskColor(score?: number): string {
-    if (score == null) return '#f5f5f5';
-    if (score >= 0.8) return '#ffcdd2';
-    if (score >= 0.5) return '#fff3e0';
-    if (score >= 0.3) return '#fff9c4';
-    if (score >= 0.1) return '#c8e6c9';
-    return '#e8f5e9';
+  private riskLevelOf(r: DetectionResult): RiskLevel {
+    return r.riskLevel ?? riskLevelForScore(r.scoreGenerated) ?? 'medium';
   }
 
-  getRiskLabel(score?: number): string {
-    if (score == null) return '未知';
-    if (score >= 0.8) return '高置信生成';
-    if (score >= 0.5) return '高疑似生成';
-    if (score >= 0.3) return '不确定';
-    if (score >= 0.1) return '高疑似真实';
-    return '高置信真实';
+  getRiskLabel(r: DetectionResult): string {
+    return RISK_LEVEL_LABELS[this.riskLevelOf(r)];
+  }
+
+  getRiskBgColor(r: DetectionResult): string {
+    return RISK_LEVEL_COLORS[this.riskLevelOf(r)];
+  }
+
+  getRiskTextColor(r: DetectionResult): string {
+    return RISK_LEVEL_TEXT_COLORS[this.riskLevelOf(r)];
   }
 
   getScoreColor(score?: number): string {
-    if (score == null) return '#9e9e9e';
-    if (score >= 0.8) return '#d32f2f';
-    if (score >= 0.5) return '#f57c00';
-    if (score >= 0.3) return '#fbc02d';
-    if (score >= 0.1) return '#66bb6a';
-    return '#388e3c';
+    const level = riskLevelForScore(score);
+    return level ? RISK_LEVEL_TEXT_COLORS[level] : '#9e9e9e';
   }
 }

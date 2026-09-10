@@ -11,6 +11,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MockDataService, UploadedFile } from '../../core/services/mock-data.service';
 import { ReportService } from '../../core/services/report.service';
+import {
+  RISK_LEVEL_LABELS,
+  RISK_LEVEL_COLORS,
+  RISK_LEVEL_TEXT_COLORS,
+  riskLevelForScore,
+} from '../../core/services/task.service';
 
 /**
  * ReportsComponent — 报告中心
@@ -136,13 +142,13 @@ import { ReportService } from '../../core/services/report.service';
 
                     <mat-card-content>
                       <div class="report-meta">
-                        <mat-chip [style.backgroundColor]="getRiskBgColor(task.overallScore)">
-                          {{ getRiskLabel(task.overallScore) }}
+                        <mat-chip [style.backgroundColor]="getRiskBgColor(task.scoreGenerated)">
+                          {{ getRiskLabel(task.scoreGenerated) }}
                         </mat-chip>
                         <span class="score-display">
                           生成概率:
-                          <strong [style.color]="getScoreColor(task.overallScore)">
-                            {{ task.overallScore != null ? (task.overallScore * 100).toFixed(1) + '%' : '--' }}
+                          <strong [style.color]="getScoreColor(task.scoreGenerated)">
+                            {{ task.scoreGenerated != null ? (task.scoreGenerated * 100).toFixed(1) + '%' : '--' }}
                           </strong>
                         </span>
                       </div>
@@ -399,29 +405,17 @@ export class ReportsComponent {
   // === 工具方法 ===
 
   getRiskLabel(score?: number): string {
-    if (score == null) return '未知';
-    if (score >= 0.8) return '高置信生成';
-    if (score >= 0.5) return '高疑似生成';
-    if (score >= 0.3) return '不确定';
-    if (score >= 0.1) return '高疑似真实';
-    return '高置信真实';
+    const level = riskLevelForScore(score);
+    return level ? RISK_LEVEL_LABELS[level] : '未知';
   }
 
   getRiskBgColor(score?: number): string {
-    if (score == null) return '#f5f5f5';
-    if (score >= 0.8) return '#ffcdd2';
-    if (score >= 0.5) return '#fff3e0';
-    if (score >= 0.3) return '#fff9c4';
-    if (score >= 0.1) return '#c8e6c9';
-    return '#e8f5e9';
+    const level = riskLevelForScore(score);
+    return level ? RISK_LEVEL_COLORS[level] : '#f5f5f5';
   }
 
   getScoreColor(score?: number): string {
-    if (score == null) return '#9e9e9e';
-    if (score >= 0.8) return '#d32f2f';
-    if (score >= 0.5) return '#f57c00';
-    if (score >= 0.3) return '#f9a825';
-    if (score >= 0.1) return '#66bb6a';
-    return '#388e3c';
+    const level = riskLevelForScore(score);
+    return level ? RISK_LEVEL_TEXT_COLORS[level] : '#9e9e9e';
   }
 }

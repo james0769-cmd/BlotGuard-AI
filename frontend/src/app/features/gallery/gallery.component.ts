@@ -1,4 +1,4 @@
-import { Component, computed } from '@angular/core';
+import { Component, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
@@ -8,6 +8,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { FormsModule } from '@angular/forms';
 import { MockDataService, SampleEntry } from '../../core/services/mock-data.service';
+import {
+  RiskLevel,
+  RISK_LEVEL_LABELS,
+  RISK_LEVEL_COLORS,
+  RISK_LEVEL_TEXT_COLORS,
+  riskLevelForScore,
+} from '../../core/services/task.service';
+
+type RiskFilter = 'all' | RiskLevel;
 
 @Component({
   selector: 'app-gallery',
@@ -30,46 +39,46 @@ import { MockDataService, SampleEntry } from '../../core/services/mock-data.serv
 
       <!-- 置信度分层过滤 -->
       <div class="filter-bar">
-        <mat-button-toggle-group [(ngModel)]="filterType" hideSingleSelectionIndicator>
+        <mat-button-toggle-group [ngModel]="filterType()" (ngModelChange)="filterType.set($event)" hideSingleSelectionIndicator>
           <mat-button-toggle value="all">全部 ({{ samples.length }})</mat-button-toggle>
-          <mat-button-toggle value="high_confidence">
-            高置信生成 ({{ highConfidenceCount() }})
+          <mat-button-toggle value="very_high">
+            {{ riskLabels.very_high }} ({{ veryHighCount() }})
           </mat-button-toggle>
-          <mat-button-toggle value="suspected">
-            高疑似生成 ({{ suspectedCount() }})
+          <mat-button-toggle value="high">
+            {{ riskLabels.high }} ({{ highCount() }})
           </mat-button-toggle>
-          <mat-button-toggle value="uncertain">
-            不确定 ({{ uncertainCount() }})
+          <mat-button-toggle value="medium">
+            {{ riskLabels.medium }} ({{ mediumCount() }})
           </mat-button-toggle>
-          <mat-button-toggle value="likely_real">
-            高疑似真实 ({{ likelyRealCount() }})
+          <mat-button-toggle value="low">
+            {{ riskLabels.low }} ({{ lowCount() }})
           </mat-button-toggle>
-          <mat-button-toggle value="high_confidence_real">
-            高置信真实 ({{ highConfidenceRealCount() }})
+          <mat-button-toggle value="very_low">
+            {{ riskLabels.very_low }} ({{ veryLowCount() }})
           </mat-button-toggle>
         </mat-button-toggle-group>
       </div>
 
       <div class="tier-legend">
-        <span class="legend-item"><span class="dot high"></span>高置信生成 (&ge;80%)</span>
-        <span class="legend-item"><span class="dot suspected"></span>高疑似生成 (50%~80%)</span>
-        <span class="legend-item"><span class="dot uncertain"></span>不确定 (30%~50%)</span>
-        <span class="legend-item"><span class="dot likely-real"></span>高疑似真实 (10%~30%)</span>
-        <span class="legend-item"><span class="dot high-real"></span>高置信真实 (&lt;10%)</span>
+        <span class="legend-item"><span class="dot very-high"></span>{{ riskLabels.very_high }}</span>
+        <span class="legend-item"><span class="dot high"></span>{{ riskLabels.high }}</span>
+        <span class="legend-item"><span class="dot medium"></span>{{ riskLabels.medium }}</span>
+        <span class="legend-item"><span class="dot low"></span>{{ riskLabels.low }}</span>
+        <span class="legend-item"><span class="dot very-low"></span>{{ riskLabels.very_low }}</span>
       </div>
 
       <div class="gallery-grid">
         @for (sample of filteredSamples(); track sample.id) {
           <mat-card class="sample-card" (click)="openDetail(sample.id)">
-            <div class="tier-badge" [class]="getTierClass(sample.probabilityGenerated)">
-              {{ getTierLabel(sample.probabilityGenerated) }}
+            <div class="tier-badge" [style.background]="getRiskBgColor(sample)" [style.color]="getRiskTextColor(sample)">
+              {{ getRiskLabel(sample) }}
             </div>
             <img [src]="sample.assetPath" [alt]="sample.fileName" class="sample-thumb" loading="lazy" />
             <mat-card-content>
               <p class="file-name">{{ sample.fileName }}</p>
               <div class="card-meta">
-                <mat-chip [style.backgroundColor]="getRiskColor(sample.probabilityGenerated)">
-                  {{ (sample.probabilityGenerated * 100).toFixed(1) }}% 生成概率
+                <mat-chip [style.backgroundColor]="getRiskBgColor(sample)">
+                  {{ (sample.scoreGenerated * 100).toFixed(1) }}% 生成概率
                 </mat-chip>
                 <span class="generator-tag">{{ getGeneratorLabel(sample.generator) }}</span>
               </div>
@@ -106,11 +115,11 @@ import { MockDataService, SampleEntry } from '../../core/services/mock-data.serv
     .dot {
       width: 10px; height: 10px; border-radius: 50%;
     }
-    .dot.high { background: #d32f2f; }
-    .dot.suspected { background: #f57c00; }
-    .dot.uncertain { background: #fbc02d; }
-    .dot.likely-real { background: #66bb6a; }
-    .dot.high-real { background: #388e3c; }
+    .dot.very-high { background: #b91c1c; }
+    .dot.high { background: #c2410c; }
+    .dot.medium { background: #a16207; }
+    .dot.low { background: #4d7c0f; }
+    .dot.very-low { background: #15803d; }
     .gallery-grid {
       display: grid;
       grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -133,14 +142,8 @@ import { MockDataService, SampleEntry } from '../../core/services/mock-data.serv
       border-radius: 4px;
       font-size: 11px;
       font-weight: 500;
-      color: #fff;
       z-index: 2;
     }
-    .tier-badge.tier-high { background: #d32f2f; }
-    .tier-badge.tier-suspected { background: #f57c00; }
-    .tier-badge.tier-uncertain { background: #f9a825; color: #333; }
-    .tier-badge.tier-likely-real { background: #66bb6a; }
-    .tier-badge.tier-high-real { background: #388e3c; }
     .sample-thumb {
       width: 100%;
       height: 180px;
@@ -188,58 +191,40 @@ import { MockDataService, SampleEntry } from '../../core/services/mock-data.serv
 })
 export class GalleryComponent {
   samples: SampleEntry[];
-  filterType = 'all';
+  filterType = signal<RiskFilter>('all');
+  readonly riskLabels = RISK_LEVEL_LABELS;
 
   constructor(private mockData: MockDataService, private router: Router) {
     this.samples = this.mockData.getSampleEntries();
   }
 
-  /** 5级风险计数 */
-  highConfidenceCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.8).length);
-  suspectedCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.5 && s.probabilityGenerated < 0.8).length);
-  uncertainCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.3 && s.probabilityGenerated < 0.5).length);
-  likelyRealCount = computed(() => this.samples.filter(s => s.probabilityGenerated >= 0.1 && s.probabilityGenerated < 0.3).length);
-  highConfidenceRealCount = computed(() => this.samples.filter(s => s.probabilityGenerated < 0.1).length);
+  /** 五级风险计数（按校准阈值） */
+  veryHighCount = computed(() => this.samples.filter(s => riskLevelForScore(s.scoreGenerated) === 'very_high').length);
+  highCount = computed(() => this.samples.filter(s => riskLevelForScore(s.scoreGenerated) === 'high').length);
+  mediumCount = computed(() => this.samples.filter(s => riskLevelForScore(s.scoreGenerated) === 'medium').length);
+  lowCount = computed(() => this.samples.filter(s => riskLevelForScore(s.scoreGenerated) === 'low').length);
+  veryLowCount = computed(() => this.samples.filter(s => riskLevelForScore(s.scoreGenerated) === 'very_low').length);
 
   filteredSamples = computed(() => {
-    switch (this.filterType) {
-      case 'high_confidence':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.8);
-      case 'suspected':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.5 && s.probabilityGenerated < 0.8);
-      case 'uncertain':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.3 && s.probabilityGenerated < 0.5);
-      case 'likely_real':
-        return this.samples.filter(s => s.probabilityGenerated >= 0.1 && s.probabilityGenerated < 0.3);
-      case 'high_confidence_real':
-        return this.samples.filter(s => s.probabilityGenerated < 0.1);
-      default:
-        return this.samples;
-    }
+    const type = this.filterType();
+    if (type === 'all') return this.samples;
+    return this.samples.filter(s => riskLevelForScore(s.scoreGenerated) === type);
   });
 
-  getTierClass(prob: number): string {
-    if (prob >= 0.8) return 'tier-high';
-    if (prob >= 0.5) return 'tier-suspected';
-    if (prob >= 0.3) return 'tier-uncertain';
-    if (prob >= 0.1) return 'tier-likely-real';
-    return 'tier-high-real';
+  private riskLevelOf(sample: SampleEntry): RiskLevel {
+    return riskLevelForScore(sample.scoreGenerated) ?? 'medium';
   }
 
-  getTierLabel(prob: number): string {
-    if (prob >= 0.8) return '高置信生成';
-    if (prob >= 0.5) return '高疑似生成';
-    if (prob >= 0.3) return '不确定';
-    if (prob >= 0.1) return '高疑似真实';
-    return '高置信真实';
+  getRiskLabel(sample: SampleEntry): string {
+    return RISK_LEVEL_LABELS[this.riskLevelOf(sample)];
   }
 
-  getRiskColor(prob: number): string {
-    if (prob >= 0.8) return '#ffcdd2';
-    if (prob >= 0.5) return '#fff3e0';
-    if (prob >= 0.3) return '#fff9c4';
-    if (prob >= 0.1) return '#c8e6c9';
-    return '#e8f5e9';
+  getRiskBgColor(sample: SampleEntry): string {
+    return RISK_LEVEL_COLORS[this.riskLevelOf(sample)];
+  }
+
+  getRiskTextColor(sample: SampleEntry): string {
+    return RISK_LEVEL_TEXT_COLORS[this.riskLevelOf(sample)];
   }
 
   getGeneratorLabel(gen: string): string {

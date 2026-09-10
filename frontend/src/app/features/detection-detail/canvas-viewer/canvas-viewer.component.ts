@@ -284,14 +284,14 @@ export class CanvasViewerComponent implements AfterViewInit, OnDestroy {
     this.isPanning = false;
   }
 
-  /** 放大按钮 */
+  /** 放大按钮：每次 +10% */
   zoomIn(): void {
-    this._scale.update((s) => Math.min(10, s * 1.2));
+    this._scale.update((s) => Math.min(10, s + 0.1));
   }
 
-  /** 缩小按钮 */
+  /** 缩小按钮：每次 -10% */
   zoomOut(): void {
-    this._scale.update((s) => Math.max(0.1, s / 1.2));
+    this._scale.update((s) => Math.max(0.1, s - 0.1));
   }
 
   /** 重置视图 */

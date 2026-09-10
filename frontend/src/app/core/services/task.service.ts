@@ -18,6 +18,46 @@ export interface TaskStatus {
 
 export type RiskLevel = 'very_low' | 'low' | 'medium' | 'high' | 'very_high';
 
+/** 五级风险中文标签（对应后端 RISK_LEVEL_LABELS） */
+export const RISK_LEVEL_LABELS: Record<RiskLevel, string> = {
+  very_low: '极低风险',
+  low: '低风险',
+  medium: '中风险',
+  high: '高风险',
+  very_high: '极高风险',
+};
+
+/** 五级风险背景色（very_high=伪造红色系 → very_low=真实绿色系） */
+export const RISK_LEVEL_COLORS: Record<RiskLevel, string> = {
+  very_low: '#dcfce7',
+  low: '#ecfccb',
+  medium: '#fef9c3',
+  high: '#ffedd5',
+  very_high: '#fee2e2',
+};
+
+/** 五级风险文字色（用于分数/强调文字） */
+export const RISK_LEVEL_TEXT_COLORS: Record<RiskLevel, string> = {
+  very_low: '#15803d',
+  low: '#4d7c0f',
+  medium: '#a16207',
+  high: '#c2410c',
+  very_high: '#b91c1c',
+};
+
+/** 校准后的五级风险分界阈值（对应后端 RISK_LEVEL_BOUNDARIES） */
+const RISK_LEVEL_BOUNDARIES = [0.1186554090, 0.2370573707, 0.4702857587, 0.6720226015];
+
+/** 由检测分数映射到五级风险（校准阈值，权威来源） */
+export function riskLevelForScore(score: number | null | undefined): RiskLevel | null {
+  if (score == null) return null;
+  if (score < RISK_LEVEL_BOUNDARIES[0]) return 'very_low';
+  if (score < RISK_LEVEL_BOUNDARIES[1]) return 'low';
+  if (score < RISK_LEVEL_BOUNDARIES[2]) return 'medium';
+  if (score < RISK_LEVEL_BOUNDARIES[3]) return 'high';
+  return 'very_high';
+}
+
 /**
  * 检测结果响应（对应 /api/tasks/{task_id}/result）
  */

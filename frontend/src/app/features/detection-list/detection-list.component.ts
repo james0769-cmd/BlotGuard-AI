@@ -1,4 +1,4 @@
-import { Component, computed, signal, OnInit } from '@angular/core';
+import { Component, computed, signal, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { MatTableModule } from '@angular/material/table';
@@ -10,7 +10,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { FormsModule } from '@angular/forms';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MockDataService, UploadedFile } from '../../core/services/mock-data.service';
-import { TaskService } from '../../core/services/task.service';
+import {
+  TaskService,
+  RiskLevel,
+  RISK_LEVEL_LABELS,
+  RISK_LEVEL_COLORS,
+  RISK_LEVEL_TEXT_COLORS,
+  riskLevelForScore,
+} from '../../core/services/task.service';
+import { Subject } from 'rxjs';
 
 interface TaskCard {
   id: string;
@@ -19,10 +27,11 @@ interface TaskCard {
   uploadTime: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   overallScore?: number;
+  riskLevel?: RiskLevel;
   isMock: boolean;
 }
 
-type RiskFilter = 'all' | 'high' | 'suspected' | 'uncertain' | 'likely_real' | 'high_real';
+type RiskFilter = 'all' | RiskLevel;
 
 const HISTORY_KEY = 'blotguard_upload_history';
 
@@ -48,13 +57,13 @@ const HISTORY_KEY = 'blotguard_upload_history';
       </header>
 
       <div class="filter-bar">
-        <mat-button-toggle-group [(ngModel)]="riskFilter" hideSingleSelectionIndicator>
+        <mat-button-toggle-group [ngModel]="riskFilter()" (ngModelChange)="riskFilter.set($event)" hideSingleSelectionIndicator>
           <mat-button-toggle value="all">全部 ({{ allTasks().length }})</mat-button-toggle>
-          <mat-button-toggle value="high">高置信生成 ({{ highCount() }})</mat-button-toggle>
-          <mat-button-toggle value="suspected">高疑似生成 ({{ suspectedCount() }})</mat-button-toggle>
-          <mat-button-toggle value="uncertain">不确定 ({{ uncertainCount() }})</mat-button-toggle>
-          <mat-button-toggle value="likely_real">高疑似真实 ({{ likelyRealCount() }})</mat-button-toggle>
-          <mat-button-toggle value="high_real">高置信真实 ({{ highRealCount() }})</mat-button-toggle>
+          <mat-button-toggle value="very_high">{{ riskLabels.very_high }} ({{ veryHighCount() }})</mat-button-toggle>
+          <mat-button-toggle value="high">{{ riskLabels.high }} ({{ highCount() }})</mat-button-toggle>
+          <mat-button-toggle value="medium">{{ riskLabels.medium }} ({{ mediumCount() }})</mat-button-toggle>
+          <mat-button-toggle value="low">{{ riskLabels.low }} ({{ lowCount() }})</mat-button-toggle>
+          <mat-button-toggle value="very_low">{{ riskLabels.very_low }} ({{ veryLowCount() }})</mat-button-toggle>
         </mat-button-toggle-group>
       </div>
 
@@ -86,8 +95,8 @@ const HISTORY_KEY = 'blotguard_upload_history';
                     </span>
                   </div>
                   <div class="meta-row">
-                    <mat-chip [style.backgroundColor]="getRiskBgColor(task.overallScore)">
-                      {{ getRiskLabel(task.overallScore) }}
+                    <mat-chip [style.backgroundColor]="getRiskBgColor(task)">
+                      {{ getRiskLabel(task) }}
                     </mat-chip>
                     <span class="status-text">{{ getStatusLabel(task.status) }}</span>
                   </div>
@@ -172,9 +181,11 @@ const HISTORY_KEY = 'blotguard_upload_history';
     .file-size { margin-left: auto; color: #9ca3af; }
   `],
 })
-export class DetectionListComponent implements OnInit {
-  riskFilter: RiskFilter = 'all';
+export class DetectionListComponent implements OnInit, OnDestroy {
+  riskFilter = signal<RiskFilter>('all');
+  readonly riskLabels = RISK_LEVEL_LABELS;
   allTasks = signal<TaskCard[]>([]);
+  private destroy$ = new Subject<void>();
 
   constructor(
     private mockData: MockDataService,
@@ -210,6 +221,7 @@ export class DetectionListComponent implements OnInit {
       cards.push({
         ...f,
         isMock: true,
+        riskLevel: riskLevelForScore(f.scoreGenerated) ?? undefined,
       });
     }
 
@@ -218,7 +230,7 @@ export class DetectionListComponent implements OnInit {
     // 3. 对真实任务，异步轮询后端获取最新状态
     for (const card of cards) {
       if (!card.isMock) {
-        this.taskService.getTaskStatus(card.id).subscribe({
+        this.taskService.pollTaskStatus(card.id, this.destroy$).subscribe({
           next: (status) => {
             const updated = this.allTasks().map(c => {
               if (c.id === card.id) {
@@ -238,6 +250,7 @@ export class DetectionListComponent implements OnInit {
                         ...c,
                         status: 'completed' as const,
                         overallScore: result.overall_score,
+                        riskLevel: result.risk_level,
                       };
                     }
                     return c;
@@ -254,54 +267,38 @@ export class DetectionListComponent implements OnInit {
     }
   }
 
-  highCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'high').length);
-  suspectedCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'suspected').length);
-  uncertainCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'uncertain').length);
-  likelyRealCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'likely_real').length);
-  highRealCount = computed(() => this.allTasks().filter(t => this.getRisk(t.overallScore) === 'high_real').length);
+  ngOnDestroy(): void {
+    this.destroy$.next();
+    this.destroy$.complete();
+  }
+
+  veryHighCount = computed(() => this.allTasks().filter(t => this.riskLevelOf(t) === 'very_high').length);
+  highCount = computed(() => this.allTasks().filter(t => this.riskLevelOf(t) === 'high').length);
+  mediumCount = computed(() => this.allTasks().filter(t => this.riskLevelOf(t) === 'medium').length);
+  lowCount = computed(() => this.allTasks().filter(t => this.riskLevelOf(t) === 'low').length);
+  veryLowCount = computed(() => this.allTasks().filter(t => this.riskLevelOf(t) === 'very_low').length);
 
   filteredTasks = computed(() => {
-    const tasks = this.allTasks();
-    if (this.riskFilter === 'all') return tasks;
-    return tasks.filter(t => this.getRisk(t.overallScore) === this.riskFilter);
+    const type = this.riskFilter();
+    if (type === 'all') return this.allTasks();
+    return this.allTasks().filter(t => this.riskLevelOf(t) === type);
   });
 
-  private getRisk(score?: number): 'high' | 'suspected' | 'uncertain' | 'likely_real' | 'high_real' {
-    if (score == null) return 'high_real';
-    if (score >= 0.8) return 'high';
-    if (score >= 0.5) return 'suspected';
-    if (score >= 0.3) return 'uncertain';
-    if (score >= 0.1) return 'likely_real';
-    return 'high_real';
+  private riskLevelOf(t: TaskCard): RiskLevel {
+    return t.riskLevel ?? riskLevelForScore(t.overallScore) ?? 'medium';
   }
 
-  getRiskLabel(score?: number): string {
-    switch (this.getRisk(score)) {
-      case 'high': return '高置信生成';
-      case 'suspected': return '高疑似生成';
-      case 'uncertain': return '不确定';
-      case 'likely_real': return '高疑似真实';
-      case 'high_real': return '高置信真实';
-    }
+  getRiskLabel(t: TaskCard): string {
+    return RISK_LEVEL_LABELS[this.riskLevelOf(t)];
   }
 
-  getRiskBgColor(score?: number): string {
-    switch (this.getRisk(score)) {
-      case 'high': return '#ffcdd2';
-      case 'suspected': return '#fff3e0';
-      case 'uncertain': return '#fff9c4';
-      case 'likely_real': return '#c8e6c9';
-      case 'high_real': return '#e8f5e9';
-    }
+  getRiskBgColor(t: TaskCard): string {
+    return RISK_LEVEL_COLORS[this.riskLevelOf(t)];
   }
 
   getScoreColor(score?: number): string {
-    if (score == null) return '#9e9e9e';
-    if (score >= 0.8) return '#d32f2f';
-    if (score >= 0.5) return '#f57c00';
-    if (score >= 0.3) return '#f9a825';
-    if (score >= 0.1) return '#66bb6a';
-    return '#388e3c';
+    const level = riskLevelForScore(score);
+    return level ? RISK_LEVEL_TEXT_COLORS[level] : '#9e9e9e';
   }
 
   getStatusIcon(status: string): string {
